@@ -6,7 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
@@ -21,130 +22,202 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
   const [awayTeam, setAwayTeam] = useState('');
   const [homePlayers, setHomePlayers] = useState<string[]>([]);
   const [awayPlayers, setAwayPlayers] = useState<string[]>([]);
-  const [homePlayerInput, setHomePlayerInput] = useState('');
-  const [awayPlayerInput, setAwayPlayerInput] = useState('');
+
+  const handleHomeTeamChange = (text: string) => {
+    // Remove special characters and only allow letters, numbers, and spaces
+    const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
+    if (sanitizedText.length <= 13) {
+      setHomeTeam(sanitizedText);
+    }
+  };
+
+  const handleAwayTeamChange = (text: string) => {
+    // Remove special characters and only allow letters, numbers, and spaces
+    const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
+    if (sanitizedText.length <= 13) {
+      setAwayTeam(sanitizedText);
+    }
+  };
+
+  const handleHomeTeamSubmit = () => {
+    // If the team name is only spaces, reset to empty
+    if (homeTeam.trim() === '') {
+      setHomeTeam('');
+    }
+  };
+
+  const handleAwayTeamSubmit = () => {
+    // If the team name is only spaces, reset to empty
+    if (awayTeam.trim() === '') {
+      setAwayTeam('');
+    }
+  };
 
   const addHomePlayer = () => {
-    if (homePlayerInput.trim()) {
-      setHomePlayers([...homePlayers, homePlayerInput.trim()]);
-      setHomePlayerInput('');
+    if (homePlayers.length < 9) {
+      setHomePlayers([...homePlayers, '']);
     }
   };
 
   const addAwayPlayer = () => {
-    if (awayPlayerInput.trim()) {
-      setAwayPlayers([...awayPlayers, awayPlayerInput.trim()]);
-      setAwayPlayerInput('');
+    if (awayPlayers.length < 9) {
+      setAwayPlayers([...awayPlayers, '']);
     }
   };
 
-  const removeHomePlayer = (index: number) => {
-    setHomePlayers(homePlayers.filter((_, i) => i !== index));
+  const handleHomePlayerChange = (index: number, text: string) => {
+    const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
+    const newPlayers = [...homePlayers];
+    newPlayers[index] = sanitizedText;
+    setHomePlayers(newPlayers);
   };
 
-  const removeAwayPlayer = (index: number) => {
-    setAwayPlayers(awayPlayers.filter((_, i) => i !== index));
+  const handleAwayPlayerChange = (index: number, text: string) => {
+    const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
+    const newPlayers = [...awayPlayers];
+    newPlayers[index] = sanitizedText;
+    setAwayPlayers(newPlayers);
+  };
+
+  const handleHomePlayerSubmit = (index: number) => {
+    if (homePlayers[index].trim() === '') {
+      const newPlayers = [...homePlayers];
+      newPlayers[index] = '';
+      setHomePlayers(newPlayers);
+    }
+  };
+
+  const handleAwayPlayerSubmit = (index: number) => {
+    if (awayPlayers[index].trim() === '') {
+      const newPlayers = [...awayPlayers];
+      newPlayers[index] = '';
+      setAwayPlayers(newPlayers);
+    }
+  };
+
+  const removeLastHomePlayer = () => {
+    if (homePlayers.length > 0) {
+      setHomePlayers(homePlayers.slice(0, -1));
+    }
+  };
+
+  const removeLastAwayPlayer = () => {
+    if (awayPlayers.length > 0) {
+      setAwayPlayers(awayPlayers.slice(0, -1));
+    }
   };
 
   const startGame = () => {
-    if (homeTeam && awayTeam && homePlayers.length > 0 && awayPlayers.length > 0) {
+    if (homeTeam && awayTeam) {
       navigation.navigate('Game', {
         homeTeam,
         awayTeam,
-        homePlayers,
-        awayPlayers,
+        homePlayers: homePlayers.filter(player => player.trim() !== ''),
+        awayPlayers: awayPlayers.filter(player => player.trim() !== ''),
       });
     }
   };
 
+  const renderPlayerInputs = (players: string[], isHomeTeam: boolean) => (
+    <View style={styles.playersSection}>
+      <View style={styles.playersHeader}>
+        <Text style={styles.playersTitle}>Players</Text>
+        {players.length < 9 && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={isHomeTeam ? addHomePlayer : addAwayPlayer}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {players.map((player, index) => (
+        <View key={index} style={styles.playerInputContainer}>
+          <Text style={styles.playerNumber}>{index + 1}.</Text>
+          <TextInput
+            style={styles.playerInput}
+            placeholder="Player Name"
+            placeholderTextColor="#666"
+            value={player}
+            onChangeText={(text) => isHomeTeam ? handleHomePlayerChange(index, text) : handleAwayPlayerChange(index, text)}
+            onSubmitEditing={() => isHomeTeam ? handleHomePlayerSubmit(index) : handleAwayPlayerSubmit(index)}
+            returnKeyType="done"
+          />
+        </View>
+      ))}
+      {players.length > 0 && (
+        <View style={styles.playersHeader}>
+          <Text style={styles.playersTitle}>Remove</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={isHomeTeam ? removeLastHomePlayer : removeLastAwayPlayer}
+          >
+            <Text style={styles.addButtonText}>-</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StripedBackground />
-      <ScrollView style={styles.scrollView}>
-        <Text style={styles.title}>Home Team</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter home team name"
-          placeholderTextColor="#666"
-          value={homeTeam}
-          onChangeText={setHomeTeam}
-        />
-
-        <Text style={styles.title}>Home Players</Text>
-        <View style={styles.playerInputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter player name"
-            placeholderTextColor="#666"
-            value={homePlayerInput}
-            onChangeText={setHomePlayerInput}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addHomePlayer}>
-            <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
-        </View>
-        {homePlayers.map((player, index) => (
-          <View key={index} style={styles.playerItem}>
-            <Text style={styles.playerName}>{player}</Text>
-            <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => removeHomePlayer(index)}
-            >
-              <Text style={styles.removeButtonText}>X</Text>
-            </TouchableOpacity>
+      <View style={styles.divider} />
+      <ScrollView 
+        style={styles.scrollView}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.contentContainer}>
+          <View style={styles.teamSection}>
+            <Text style={styles.title}>Home Team</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Team Name"
+              placeholderTextColor="#666"
+              value={homeTeam}
+              onChangeText={handleHomeTeamChange}
+              onSubmitEditing={handleHomeTeamSubmit}
+              returnKeyType="done"
+            />
+            {renderPlayerInputs(homePlayers, true)}
           </View>
-        ))}
 
-        <Text style={styles.title}>Away Team</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter away team name"
-          placeholderTextColor="#666"
-          value={awayTeam}
-          onChangeText={setAwayTeam}
-        />
-
-        <Text style={styles.title}>Away Players</Text>
-        <View style={styles.playerInputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter player name"
-            placeholderTextColor="#666"
-            value={awayPlayerInput}
-            onChangeText={setAwayPlayerInput}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addAwayPlayer}>
-            <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
-        </View>
-        {awayPlayers.map((player, index) => (
-          <View key={index} style={styles.playerItem}>
-            <Text style={styles.playerName}>{player}</Text>
-            <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => removeAwayPlayer(index)}
-            >
-              <Text style={styles.removeButtonText}>X</Text>
-            </TouchableOpacity>
+          <View style={styles.teamSection}>
+            <Text style={styles.title}>Away Team</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Team Name"
+              placeholderTextColor="#666"
+              value={awayTeam}
+              onChangeText={handleAwayTeamChange}
+              onSubmitEditing={handleAwayTeamSubmit}
+              returnKeyType="done"
+            />
+            {renderPlayerInputs(awayPlayers, false)}
           </View>
-        ))}
+        </View>
+      </ScrollView>
 
+      <View style={styles.bottomButtons}>
         <TouchableOpacity
           style={styles.startButton}
           onPress={startGame}
-          disabled={!homeTeam || !awayTeam || homePlayers.length === 0 || awayPlayers.length === 0}
+          disabled={!homeTeam || !awayTeam}
         >
           <Text style={styles.startButtonText}>Start Game</Text>
         </TouchableOpacity>
-      </ScrollView>
 
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -152,67 +225,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
+  contentContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  teamSection: {
     flex: 1,
     padding: 20,
+    zIndex: 1,
+  },
+  divider: {
+    width: 4,
+    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    marginLeft: -2,
+    zIndex: 2,
   },
   title: {
     fontSize: 20,
     fontFamily: 'PressStart2P',
     color: '#FFFFFF',
     marginBottom: 15,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   input: {
     backgroundColor: '#FFFFFF',
     padding: 12,
     marginBottom: 10,
     fontFamily: 'PressStart2P',
-    fontSize: 14,
+    fontSize: 10,
   },
-  playerInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  addButton: {
-    backgroundColor: '#2196F3',
-    padding: 12,
-    alignItems: 'center',
-    marginLeft: 10,
-    minWidth: 80,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'PressStart2P',
-  },
-  playerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    marginBottom: 8,
-  },
-  playerName: {
-    fontSize: 14,
-    fontFamily: 'PressStart2P',
-    color: '#000000',
-  },
-  removeButton: {
-    padding: 8,
-  },
-  removeButtonText: {
-    color: '#2196F3',
-    fontSize: 16,
-    fontFamily: 'PressStart2P',
+  bottomButtons: {
+    padding: 20,
+    gap: 10,
+    zIndex: 3,
   },
   startButton: {
     backgroundColor: '#2196F3',
     padding: 15,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
   },
   startButtonText: {
     color: '#FFFFFF',
@@ -223,11 +279,67 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     padding: 15,
     alignItems: 'center',
-    margin: 20,
   },
   backButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'PressStart2P',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  playersSection: {
+    marginTop: 20,
+  },
+  playersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  playersTitle: {
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+    paddingBottom: 10,
+  },
+  addButton: {
+    marginLeft: 10,
+    width: 24,
+    height: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  addButtonText: {
+    fontSize: 20,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+    lineHeight: 24,
+  },
+  playerInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  playerNumber: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    marginRight: 8,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
+  playerInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+    fontFamily: 'PressStart2P',
+    fontSize: 10,
   },
 }); 
