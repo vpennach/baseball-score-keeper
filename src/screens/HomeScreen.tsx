@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import StripedBackground from '../components/StripedBackground';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
@@ -10,7 +11,8 @@ type HomeScreenProps = {
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Baseball Score Keeper</Text>
+      <StripedBackground />
+      <Text style={styles.title}>Party Baseball</Text>
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.button}
@@ -25,6 +27,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         >
           <Text style={styles.buttonText}>Game History</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => navigation.navigate('PlayerStats')}
+        >
+          <Text style={styles.buttonText}>Player Stats</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -33,31 +42,38 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#2E7D32',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'PressStart2P',
     marginBottom: 40,
-    color: '#f4511e',
+    marginTop: -100,
+    color: '#FFD700',
+    textAlign: 'center',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 3, height: 3 },
+    textShadowRadius: 0,
+    padding: 10,
   },
   buttonContainer: {
     width: '100%',
     gap: 20,
   },
   button: {
-    backgroundColor: '#f4511e',
+    backgroundColor: '#FFFFFF',
     padding: 15,
-    borderRadius: 10,
     width: '100%',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#000000',
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
   },
 }); 

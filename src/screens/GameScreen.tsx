@@ -10,6 +10,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
+import StripedBackground from '../components/StripedBackground';
 
 type GameScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Game'>;
@@ -146,6 +147,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
 
   return (
     <View style={styles.container}>
+      <StripedBackground />
       <View style={styles.scoreboard}>
         <Text style={styles.teamName}>{awayTeam}</Text>
         <Text style={styles.score}>{gameState.awayScore}</Text>
@@ -175,7 +177,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
 
       <View style={styles.controls}>
         <TouchableOpacity style={styles.endButton} onPress={endGame}>
-          <Text style={styles.buttonText}>End Game</Text>
+          <Text style={styles.endButtonText}>End Game</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -185,33 +187,36 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    padding: 20,
   },
   scoreboard: {
-    backgroundColor: '#f4511e',
+    backgroundColor: '#2196F3',
     padding: 20,
     alignItems: 'center',
+    marginBottom: 20,
   },
   teamName: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    marginBottom: 15,
   },
   score: {
-    color: '#fff',
     fontSize: 48,
-    fontWeight: 'bold',
-    marginVertical: 10,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
   },
   inning: {
     color: '#fff',
     fontSize: 18,
     marginTop: 10,
+    fontFamily: 'PressStart2P',
   },
   outs: {
     color: '#fff',
     fontSize: 18,
     marginTop: 5,
+    fontFamily: 'PressStart2P',
   },
   statsContainer: {
     flex: 1,
@@ -222,19 +227,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f4511e',
+    fontFamily: 'PressStart2P',
+    color: '#2196F3',
     marginBottom: 15,
   },
   playerStats: {
     backgroundColor: '#f8f8f8',
     padding: 15,
-    borderRadius: 8,
     marginBottom: 10,
   },
   playerName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'PressStart2P',
     marginBottom: 5,
   },
   statsRow: {
@@ -244,21 +248,33 @@ const styles = StyleSheet.create({
   stat: {
     fontSize: 16,
     color: '#666',
+    fontFamily: 'PressStart2P',
   },
   controls: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
   },
-  endButton: {
-    backgroundColor: '#f4511e',
+  controlButton: {
+    backgroundColor: '#2196F3',
     padding: 15,
     borderRadius: 8,
+    minWidth: 100,
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+  controlButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+  },
+  endButton: {
+    backgroundColor: '#000000',
+    padding: 15,
+    alignItems: 'center',
+  },
+  endButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
   },
 }); 

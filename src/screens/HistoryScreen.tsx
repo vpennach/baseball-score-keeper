@@ -5,9 +5,11 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import StripedBackground from '../components/StripedBackground';
 
 type HistoryScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -58,6 +60,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
   return (
     <View style={styles.container}>
+      <StripedBackground />
       <Text style={styles.title}>Game History</Text>
       <FlatList
         data={mockGames}
@@ -65,6 +68,12 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
       />
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -72,12 +81,11 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#f4511e',
+    fontSize: 24,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
     padding: 20,
   },
   listContainer: {
@@ -85,7 +93,6 @@ const styles = StyleSheet.create({
   },
   gameCard: {
     backgroundColor: '#f8f8f8',
-    borderRadius: 12,
     padding: 20,
     marginBottom: 15,
     shadowColor: '#000',
@@ -101,6 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginBottom: 10,
+    fontFamily: 'PressStart2P',
   },
   teamsContainer: {
     flexDirection: 'row',
@@ -113,17 +121,44 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'PressStart2P',
     marginBottom: 5,
   },
   score: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f4511e',
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#666',
+    textAlign: 'center',
   },
   vs: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginVertical: 5,
+  },
+  gameItem: {
+    backgroundColor: '#2196F3',
+    padding: 15,
     marginHorizontal: 20,
+    marginVertical: 10,
+  },
+  gameTitle: {
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+  },
+  backButton: {
+    backgroundColor: '#000000',
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
   },
 }); 

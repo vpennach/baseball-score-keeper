@@ -3,10 +3,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
+import { useFonts } from 'expo-font';
 import HomeScreen from './src/screens/HomeScreen';
 import GameScreen from './src/screens/GameScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import GameSetupScreen from './src/screens/GameSetupScreen';
+import PlayerStatsScreen from './src/screens/PlayerStatsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -18,11 +20,20 @@ export type RootStackParamList = {
     awayPlayers: string[];
   };
   History: undefined;
+  PlayerStats: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'PressStart2P': require('./assets/fonts/PressStart2P-Regular.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <NavigationContainer>
       <View style={styles.container}>
@@ -30,36 +41,43 @@ export default function App() {
           initialRouteName="Home"
           screenOptions={{
             headerStyle: {
-              backgroundColor: '#f4511e',
+              backgroundColor: '#000000',
             },
             headerTintColor: '#fff',
             headerTitleStyle: {
-              fontWeight: 'bold',
+              fontFamily: 'PressStart2P',
+              fontSize: 16,
             },
+            headerBackVisible: false,
           }}
         >
           <Stack.Screen 
             name="Home" 
             component={HomeScreen} 
-            options={{ title: 'Baseball Score Keeper' }}
+            options={{ title: 'Party Baseball' }}
           />
           <Stack.Screen 
             name="GameSetup" 
             component={GameSetupScreen} 
-            options={{ title: 'Setup Game' }}
+            options={{ title: 'Setup' }}
           />
           <Stack.Screen 
             name="Game" 
             component={GameScreen} 
-            options={{ title: 'Current Game' }}
+            options={{ title: 'Game' }}
           />
           <Stack.Screen 
             name="History" 
             component={HistoryScreen} 
-            options={{ title: 'Game History' }}
+            options={{ title: 'History' }}
+          />
+          <Stack.Screen 
+            name="PlayerStats" 
+            component={PlayerStatsScreen} 
+            options={{ title: 'Stats' }}
           />
         </Stack.Navigator>
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
       </View>
     </NavigationContainer>
   );
@@ -68,6 +86,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#2E7D32',
   },
 });
