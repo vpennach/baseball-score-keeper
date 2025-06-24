@@ -38,11 +38,6 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
       await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     };
     lockOrientation();
-
-    // Unlock when leaving screen
-    return () => {
-      ScreenOrientation.unlockAsync();
-    };
   }, []);
 
   const handleHomeTeamChange = (text: string) => {
@@ -381,7 +376,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
             />
             <TextInput
               style={styles.abbreviationInput}
-              placeholder="Abr.r"
+              placeholder="Abr."
               placeholderTextColor="#666"
               value={awayAbbreviation}
               onChangeText={handleAwayAbbreviationChange}

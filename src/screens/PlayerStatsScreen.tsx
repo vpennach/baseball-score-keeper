@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 type PlayerStatsScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PlayerStats'>;
 };
 
 export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps) {
+  // Lock to portrait mode when screen loads
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+    lockOrientation();
+  }, []);
+
   return (
     <View style={styles.container}>
       <StripedBackground />

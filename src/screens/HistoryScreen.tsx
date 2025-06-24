@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 type HistoryScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -36,6 +37,14 @@ const mockGames = [
 ];
 
 export default function HistoryScreen({ navigation }: HistoryScreenProps) {
+  // Lock to portrait mode when screen loads
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+    lockOrientation();
+  }, []);
+
   const renderGame = ({ item }: { item: typeof mockGames[0] }) => (
     <TouchableOpacity
       style={styles.gameCard}

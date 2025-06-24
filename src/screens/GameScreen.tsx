@@ -49,6 +49,7 @@ type GameState = {
   currentBatterIsHome: boolean;
   nextHomeBatter: number;
   nextAwayBatter: number;
+  gameEnded: boolean;
 };
 
 export default function GameScreen({ navigation, route }: GameScreenProps) {
@@ -67,11 +68,6 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     };
     lockOrientation();
-
-    // Unlock when leaving screen
-    return () => {
-      ScreenOrientation.unlockAsync();
-    };
   }, []);
 
   const truncatePlayerName = (name: string) => {
@@ -83,21 +79,21 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
 
   const handlePlayerPress = (playerName: string) => {
     try {
-      console.log('=== PLAYER PRESS DEBUG ===');
-      console.log('1. Player pressed:', playerName);
-      console.log('2. Current showPlayerStats state:', showPlayerStats);
-      console.log('3. Current selectedPlayer state:', selectedPlayer);
+      //console.log('=== PLAYER PRESS DEBUG ===');
+      //console.log('1. Player pressed:', playerName);
+      //console.log('2. Current showPlayerStats state:', showPlayerStats);
+      //console.log('3. Current selectedPlayer state:', selectedPlayer);
       
-      console.log('4. Setting selectedPlayer to:', playerName);
+      //console.log('4. Setting selectedPlayer to:', playerName);
       setSelectedPlayer(playerName);
       
-      console.log('5. Setting showPlayerStats to true');
+      //console.log('5. Setting showPlayerStats to true');
       setShowPlayerStats(true);
       
-      console.log('6. handlePlayerPress completed successfully');
+      //console.log('6. handlePlayerPress completed successfully');
     } catch (error) {
-      console.error('ERROR in handlePlayerPress:', error);
-      console.error('Error stack:', error.stack);
+      //console.error('ERROR in handlePlayerPress:', error);
+      //console.error('Error stack:', error.stack);
     }
   };
 
@@ -128,10 +124,42 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     currentBatterIsHome: false,
     nextHomeBatter: 1,
     nextAwayBatter: 1,
+    gameEnded: false,
   });
 
   const saveGameState = (state: GameState) => {
     setGameHistory(prev => [...prev, state]);
+  };
+
+  const checkGameEnd = (currentInning: number, isTopInning: boolean, homeScore: number, awayScore: number): boolean => {
+    // Game ends when we've completed the bottom of the last inning
+    // (i.e., when we're about to start the top of the next inning after maxInnings)
+    if (isTopInning && currentInning > maxInnings) {
+      // Check if the game is tied - if so, continue to extra innings
+      if (homeScore === awayScore) {
+        return false; // Continue to extra innings
+      }
+      return true; // Game is not tied, end the game
+    }
+    
+    // Game ends when home team is already winning after top of the last inning
+    // (i.e., when we're about to start the bottom of the last inning and home team leads)
+    if (!isTopInning && currentInning === maxInnings && homeScore > awayScore) {
+      return true; // Home team is winning, end the game
+    }
+    
+    return false;
+  };
+
+  const checkWalkOff = (currentInning: number, isTopInning: boolean, homeScore: number, awayScore: number): boolean => {
+    // Walk-off occurs when home team takes the lead in the bottom of the final inning or extra innings
+    if (!isTopInning && homeScore > awayScore) {
+      // Check if this is the final inning (either maxInnings or extra innings)
+      if (currentInning >= maxInnings) {
+        return true; // Walk-off!
+      }
+    }
+    return false;
   };
 
   const goBack = () => {
@@ -261,6 +289,13 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       const nextBatterIndex = (nextBatterNumber - 1) % players.length;
       const nextBatter = players[nextBatterIndex];
 
+      // Calculate new scores after this hit
+      const newHomeScore = prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore;
+      const newAwayScore = !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore;
+
+      // Check for walk-off
+      const isWalkOff = checkWalkOff(prev.inning, prev.isTopInning, newHomeScore, newAwayScore);
+
       return {
         ...prev,
         firstBase: newFirstBase,
@@ -268,8 +303,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         thirdBase: newThirdBase,
         balls: 0,
         strikes: 0,
-        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
-        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        homeScore: newHomeScore,
+        awayScore: newAwayScore,
+        gameEnded: isWalkOff || prev.gameEnded,
         [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
           ...updatedTeamStats,
           [prev.currentBatter]: {
@@ -348,7 +384,14 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       const nextBatterNumber = prev.currentBatterIsHome ? newNextHomeBatter : newNextAwayBatter;
       const nextBatterIndex = (nextBatterNumber - 1) % players.length;
       const nextBatter = players[nextBatterIndex];
-      
+
+      // Calculate new scores after this hit
+      const newHomeScore = prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore;
+      const newAwayScore = !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore;
+
+      // Check for walk-off
+      const isWalkOff = checkWalkOff(prev.inning, prev.isTopInning, newHomeScore, newAwayScore);
+
       return {
         ...prev,
         firstBase: newFirstBase,
@@ -356,8 +399,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         thirdBase: newThirdBase,
         balls: 0,
         strikes: 0,
-        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
-        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        homeScore: newHomeScore,
+        awayScore: newAwayScore,
+        gameEnded: isWalkOff || prev.gameEnded,
         [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
           ...updatedTeamStats,
           [prev.currentBatter]: {
@@ -434,6 +478,13 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       const nextBatterIndex = (nextBatterNumber - 1) % players.length;
       const nextBatter = players[nextBatterIndex];
       
+      // Calculate new scores after this hit
+      const newHomeScore = prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore;
+      const newAwayScore = !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore;
+
+      // Check for walk-off
+      const isWalkOff = checkWalkOff(prev.inning, prev.isTopInning, newHomeScore, newAwayScore);
+      
       return {
         ...prev,
         firstBase: null,
@@ -441,8 +492,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         thirdBase: '3', // Batter reaches third
         balls: 0,
         strikes: 0,
-        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
-        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        homeScore: newHomeScore,
+        awayScore: newAwayScore,
+        gameEnded: isWalkOff || prev.gameEnded,
         [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
           ...updatedTeamStats,
           [prev.currentBatter]: {
@@ -519,6 +571,13 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       const nextBatterIndex = (nextBatterNumber - 1) % players.length;
       const nextBatter = players[nextBatterIndex];
       
+      // Calculate new scores after this hit
+      const newHomeScore = prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore;
+      const newAwayScore = !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore;
+
+      // Check for walk-off
+      const isWalkOff = checkWalkOff(prev.inning, prev.isTopInning, newHomeScore, newAwayScore);
+      
       return {
         ...prev,
         firstBase: null,
@@ -526,8 +585,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         thirdBase: null,
         balls: 0,
         strikes: 0,
-        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
-        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        homeScore: newHomeScore,
+        awayScore: newAwayScore,
+        gameEnded: isWalkOff || prev.gameEnded,
         [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
           ...updatedTeamStats,
           [prev.currentBatter]: {
@@ -564,6 +624,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         let newThirdBase = prev.thirdBase;
         let newNextHomeBatter = prev.nextHomeBatter;
         let newNextAwayBatter = prev.nextAwayBatter;
+        let shouldEndGame = false; // Initialize to prevent undefined
 
         // Update current batter stats (strikeout - only at bat, no hit)
         const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
@@ -591,6 +652,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
             // Switch from top to bottom (away -> home)
             newIsTopInning = false;
             
+            // Check if game should end (home team already winning in last inning)
+            shouldEndGame = checkGameEnd(prev.inning, newIsTopInning, prev.homeScore, prev.awayScore);
+            
             // Use saved next home batter number
             const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
             newCurrentBatter = homePlayers[homeBatterIndex];
@@ -599,16 +663,17 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
             
           } else {
             // Switch from bottom to top of next inning (home -> away)
-
             newIsTopInning = true;
             newInning = prev.inning + 1;
+            
+            // Check if game should end
+            shouldEndGame = checkGameEnd(newInning, newIsTopInning, prev.homeScore, prev.awayScore);
             
             // Use saved next away batter number
             const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
             newCurrentBatter = awayPlayers[awayBatterIndex];
             newCurrentBatterIndex = awayBatterIndex;
             newCurrentBatterIsHome = false;
-            
           }
           // Clear bases when switching teams
           newFirstBase = null;
@@ -645,6 +710,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           thirdBase: newThirdBase,
           nextHomeBatter: newNextHomeBatter,
           nextAwayBatter: newNextAwayBatter,
+          gameEnded: shouldEndGame || prev.gameEnded,
           [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: newTeamStats,
         };
       } else {
@@ -673,6 +739,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
       let newThirdBase = prev.thirdBase;
       let newNextHomeBatter = prev.nextHomeBatter;
       let newNextAwayBatter = prev.nextAwayBatter;
+      let shouldEndGame = false; // Initialize to prevent undefined
 
       // Update current batter stats (out - only at bat, no hit)
       const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
@@ -701,6 +768,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           // Switch from top to bottom (away -> home)
           newIsTopInning = false;
           
+          // Check if game should end (home team already winning in last inning)
+          shouldEndGame = checkGameEnd(prev.inning, newIsTopInning, prev.homeScore, prev.awayScore);
+          
           // Use saved next home batter number
           const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
           newCurrentBatter = homePlayers[homeBatterIndex];
@@ -711,6 +781,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           // Switch from bottom to top of next inning (home -> away)
           newIsTopInning = true;
           newInning = prev.inning + 1;
+          
+          // Check if game should end
+          shouldEndGame = checkGameEnd(newInning, newIsTopInning, prev.homeScore, prev.awayScore);
           
           // Use saved next away batter number
           const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
@@ -752,6 +825,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         thirdBase: newThirdBase,
         nextHomeBatter: newNextHomeBatter,
         nextAwayBatter: newNextAwayBatter,
+        gameEnded: shouldEndGame || prev.gameEnded,
         [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: newTeamStats,
       };
     });
@@ -987,6 +1061,26 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           { atBats: 0, hits: 0, runs: 0, rbis: 0, singles: 0, doubles: 0, triples: 0, homers: 0, totalBases: 0 }
         }
       />
+
+      {/* Game End Overlay */}
+      {gameState.gameEnded && (
+        <View style={styles.gameEndOverlay}>
+          <View style={styles.gameEndContent}>
+            <Text style={styles.gameEndTitle}>GAME OVER</Text>
+            <View style={styles.finalScoreContainer}>
+              <Text style={styles.finalScoreText}>
+                {route.params.awayAbbreviation} {gameState.awayScore} - {gameState.homeScore} {route.params.homeAbbreviation}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.returnHomeButton} 
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.returnHomeButtonText}>RETURN TO HOME</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1255,5 +1349,47 @@ const styles = StyleSheet.create({
   },
   currentBatter: {
     backgroundColor: '#FFFF00',
+  },
+  gameEndOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gameEndContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    alignItems: 'center',
+    borderColor: '#000000',
+    borderWidth: 5,
+  },
+  gameEndTitle: {
+    fontSize: 24,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+    marginBottom: 20,
+  },
+  finalScoreContainer: {
+    marginBottom: 20,
+  },
+  finalScoreText: {
+    fontSize: 18,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+  },
+  returnHomeButton: {
+    backgroundColor: '#FF0000',
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  returnHomeButtonText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
   },
 }); 
