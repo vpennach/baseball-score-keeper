@@ -16,8 +16,11 @@ export type RootStackParamList = {
   Game: { 
     homeTeam: string;
     awayTeam: string;
+    homeAbbreviation: string;
+    awayAbbreviation: string;
     homePlayers: string[];
     awayPlayers: string[];
+    maxInnings: number;
   };
   History: undefined;
   PlayerStats: undefined;

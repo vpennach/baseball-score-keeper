@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 type GameScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Game'>;
@@ -32,10 +33,35 @@ type GameState = {
   awayScore: number;
   homePlayerStats: Record<string, PlayerStats>;
   awayPlayerStats: Record<string, PlayerStats>;
+  balls: number;
+  strikes: number;
+  firstBase: boolean;
+  secondBase: boolean;
+  thirdBase: boolean;
 };
 
 export default function GameScreen({ navigation, route }: GameScreenProps) {
-  const { homeTeam, awayTeam, homePlayers, awayPlayers } = route.params;
+  const { homeTeam, awayTeam, homePlayers, awayPlayers, maxInnings } = route.params;
+
+  // Lock to landscape mode when screen loads
+  useEffect(() => {
+    const lockOrientation = async () => {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    };
+    lockOrientation();
+
+    // Unlock when leaving screen
+    return () => {
+      ScreenOrientation.unlockAsync();
+    };
+  }, []);
+
+  const truncatePlayerName = (name: string) => {
+    if (name.length > 6) {
+      return name.substring(0, 6) + '..';
+    }
+    return name;
+  };
 
   const initialPlayerStats = (players: string[]) =>
     players.reduce(
@@ -54,6 +80,11 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     awayScore: 0,
     homePlayerStats: initialPlayerStats(homePlayers),
     awayPlayerStats: initialPlayerStats(awayPlayers),
+    balls: 0,
+    strikes: 0,
+    firstBase: false,
+    secondBase: false,
+    thirdBase: false,
   });
 
   const updatePlayerStats = (
@@ -133,52 +164,93 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     );
   };
 
-  const renderPlayerStats = (player: string, stats: PlayerStats) => (
-    <View key={player} style={styles.playerStats}>
-      <Text style={styles.playerName}>{player}</Text>
-      <View style={styles.statsRow}>
-        <Text style={styles.stat}>AB: {stats.atBats}</Text>
-        <Text style={styles.stat}>H: {stats.hits}</Text>
-        <Text style={styles.stat}>R: {stats.runs}</Text>
-        <Text style={styles.stat}>RBI: {stats.rbis}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       <StripedBackground />
-      <View style={styles.scoreboard}>
-        <Text style={styles.teamName}>{awayTeam}</Text>
-        <Text style={styles.score}>{gameState.awayScore}</Text>
-        <Text style={styles.teamName}>{homeTeam}</Text>
-        <Text style={styles.score}>{gameState.homeScore}</Text>
-        <Text style={styles.inning}>
-          {gameState.isTopInning ? 'Top' : 'Bottom'} {gameState.inning}
-        </Text>
-        <Text style={styles.outs}>Outs: {gameState.outs}</Text>
-      </View>
-
-      <ScrollView style={styles.statsContainer}>
-        <View style={styles.teamSection}>
-          <Text style={styles.sectionTitle}>{awayTeam}</Text>
-          {awayPlayers.map((player) =>
-            renderPlayerStats(player, gameState.awayPlayerStats[player])
-          )}
+      <View style={styles.gameLayout}>
+        {/* Away Team Lineup (Left Side) */}
+        <View style={styles.lineupSection}>
+          <Text style={styles.teamTitle}>{awayTeam}</Text>
+          <ScrollView style={styles.lineupScroll}>
+            {awayPlayers.map((player, index) => (
+              <View key={player} style={styles.lineupItem}>
+                <Text style={styles.lineupNumber}>{index + 1}.</Text>
+                <Text style={styles.lineupName}>{truncatePlayerName(player)}</Text>
+                <Text style={styles.playerStats}>
+                  {gameState.awayPlayerStats[player]?.rbis || 0}RBI {gameState.awayPlayerStats[player]?.hits || 0}-{gameState.awayPlayerStats[player]?.atBats || 0}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
         </View>
 
-        <View style={styles.teamSection}>
-          <Text style={styles.sectionTitle}>{homeTeam}</Text>
-          {homePlayers.map((player) =>
-            renderPlayerStats(player, gameState.homePlayerStats[player])
-          )}
-        </View>
-      </ScrollView>
+        {/* Score Bug (Center) */}
+        <View style={styles.scoreBug}>
+          {/* Top Section - Team Names and Scores */}
+          <View style={styles.topSection}>
+            {/* Away Team Row */}
+            <View style={styles.teamRow}>
+              <View style={styles.scoreBox}>
+                <Text style={styles.scoreNumber}>{gameState.awayScore}</Text>
+              </View>
+              <View style={styles.teamNameBox}>
+                <Text style={styles.teamNameText}>{awayTeam}</Text>
+              </View>
+            </View>
+            
+            {/* Home Team Row */}
+            <View style={styles.teamRow}>
+              <View style={styles.scoreBox}>
+                <Text style={styles.scoreNumber}>{gameState.homeScore}</Text>
+              </View>
+              <View style={styles.teamNameBox}>
+                <Text style={styles.teamNameText}>{homeTeam}</Text>
+              </View>
+            </View>
+          </View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.endButton} onPress={endGame}>
-          <Text style={styles.endButtonText}>End Game</Text>
-        </TouchableOpacity>
+          {/* Bottom Section - Split into left and right */}
+          <View style={styles.bottomSection}>
+            {/* Left Side - Pitch Count and Outs */}
+            <View style={styles.leftSection}>
+              <Text style={styles.pitchCount}>{gameState.balls}-{gameState.strikes}</Text>
+              <View style={styles.outsContainer}>
+                <View style={[styles.outSquare, gameState.outs >= 1 && styles.outSquareActive]} />
+                <View style={[styles.outSquare, gameState.outs >= 2 && styles.outSquareActive]} />
+              </View>
+            </View>
+
+            {/* Right Side - Bases and Inning */}
+            <View style={styles.rightSection}>
+              <View style={styles.basesContainer}>
+                <View style={[styles.baseSquare, styles.secondBase, gameState.secondBase && styles.baseOccupied]} />
+                <View style={[styles.baseSquare, styles.thirdBase, gameState.thirdBase && styles.baseOccupied]} />
+                <View style={[styles.baseSquare, styles.firstBase, gameState.firstBase && styles.baseOccupied]} />
+              </View>
+              <View style={styles.inningBox}>
+                <Text style={styles.inningText}>
+                  {gameState.isTopInning ? 'T' : 'B'}{gameState.inning}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Home Team Lineup (Right Side) */}
+        <View style={styles.lineupSection}>
+          <Text style={styles.teamTitle}>{homeTeam}</Text>
+          <ScrollView style={styles.lineupScroll}>
+            {homePlayers.map((player, index) => (
+              <View key={player} style={styles.lineupItem}>
+                <Text style={styles.lineupNumber}>{index + 1}.</Text>
+                <Text style={styles.lineupName}>{truncatePlayerName(player)}</Text>
+                <Text style={styles.playerStats}>
+                  {gameState.homePlayerStats[player]?.rbis || 0}RBI {gameState.homePlayerStats[player]?.hits || 0}-{gameState.homePlayerStats[player]?.atBats || 0}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -187,94 +259,187 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
   },
-  scoreboard: {
-    backgroundColor: '#2196F3',
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  teamName: {
-    fontSize: 20,
-    fontFamily: 'PressStart2P',
-    color: '#FFFFFF',
-    marginBottom: 15,
-  },
-  score: {
-    fontSize: 48,
-    fontFamily: 'PressStart2P',
-    color: '#FFFFFF',
-  },
-  inning: {
-    color: '#fff',
-    fontSize: 18,
-    marginTop: 10,
-    fontFamily: 'PressStart2P',
-  },
-  outs: {
-    color: '#fff',
-    fontSize: 18,
-    marginTop: 5,
-    fontFamily: 'PressStart2P',
-  },
-  statsContainer: {
+  gameLayout: {
     flex: 1,
-    padding: 20,
-  },
-  teamSection: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontFamily: 'PressStart2P',
-    color: '#2196F3',
-    marginBottom: 15,
-  },
-  playerStats: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    marginBottom: 10,
-  },
-  playerName: {
-    fontSize: 18,
-    fontFamily: 'PressStart2P',
-    marginBottom: 5,
-  },
-  statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  stat: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'PressStart2P',
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  controlButton: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 8,
-    minWidth: 100,
     alignItems: 'center',
   },
-  controlButtonText: {
+  lineupSection: {
+    flex: 1,
+    padding: 5,
+    marginHorizontal: 5,
+    paddingLeft: 30
+  },
+  teamTitle: {
+    fontSize: 18,
+    fontFamily: 'PressStart2P',
     color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 10,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+    paddingRight: 30
+  },
+  lineupScroll: {
+    flex: 1,
+  },
+  lineupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 4,
+    borderWidth: 2,
+    borderColor: '#000000',
+    maxWidth: 250,
+  },
+  lineupNumber: {
     fontSize: 14,
     fontFamily: 'PressStart2P',
+    color: '#000000',
+    marginRight: 8,
+    minWidth: 20,
   },
-  endButton: {
-    backgroundColor: '#000000',
+  lineupName: {
+    fontSize: 12,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+    flex: 1,
+  },
+  playerStats: {
+    fontSize: 10,
+    fontFamily: 'PressStart2P',
+    color: '#666666',
+    marginLeft: 'auto',
+  },
+  scoreBug: {
+    width: 200,
+    height: 180,
+    backgroundColor: '#808080',
     padding: 15,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 200,
+  },
+  topSection: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scoreBox: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: '#000000',
+    marginRight: 8,
+    minWidth: 30,
     alignItems: 'center',
   },
-  endButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  scoreNumber: {
+    fontSize: 18,
     fontFamily: 'PressStart2P',
+    color: '#000000',
+  },
+  teamNameBox: {
+    flex: 1,
+  },
+  teamNameText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
+  bottomSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  leftSection: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rightSection: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pitchCount: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+    marginBottom: 5,
+  },
+  outsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  outSquare: {
+    width: 12,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#000000',
+    marginHorizontal: 2,
+  },
+  outSquareActive: {
+    backgroundColor: '#FFD700',
+  },
+  basesContainer: {
+    width: 60,
+    height: 40,
+    position: 'relative',
+    marginBottom: 5,
+  },
+  baseSquare: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#000000',
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
+  },
+  secondBase: {
+    top: 0,
+    left: '50%',
+    marginLeft: -10,
+  },
+  thirdBase: {
+    bottom: 0,
+    left: 0,
+  },
+  firstBase: {
+    bottom: 0,
+    right: 0,
+  },
+  inningBox: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  inningText: {
+    fontSize: 12,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+  },
+  baseOccupied: {
+    backgroundColor: '#FFD700',
   },
 }); 

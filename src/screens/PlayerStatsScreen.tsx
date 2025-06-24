@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import StripedBackground from '../components/StripedBackground';
 
 type PlayerStatsScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PlayerStats'>;
@@ -10,6 +11,7 @@ type PlayerStatsScreenProps = {
 export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps) {
   return (
     <View style={styles.container}>
+      <StripedBackground />
       <ScrollView style={styles.scrollView}>
         <Text style={styles.title}>Player Stats</Text>
         {/* Player stats content will go here */}
