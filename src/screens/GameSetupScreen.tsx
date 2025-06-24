@@ -257,6 +257,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
             onChangeText={(text) => isHomeTeam ? handleHomePlayerChange(index, text) : handleAwayPlayerChange(index, text)}
             onSubmitEditing={() => isHomeTeam ? handleHomePlayerSubmit(index) : handleAwayPlayerSubmit(index)}
             returnKeyType="done"
+            autoCorrect={false}
           />
         </View>
       ))}
@@ -350,6 +351,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
               onChangeText={handleHomeTeamChange}
               onSubmitEditing={handleHomeTeamSubmit}
               returnKeyType="done"
+              autoCorrect={false}
             />
             <TextInput
               style={styles.abbreviationInput}
@@ -358,6 +360,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
               value={homeAbbreviation}
               onChangeText={handleHomeAbbreviationChange}
               returnKeyType="done"
+              autoCorrect={false}
             />
             {renderPlayerInputs(homePlayers, true)}
           </View>
@@ -374,14 +377,16 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
               onChangeText={handleAwayTeamChange}
               onSubmitEditing={handleAwayTeamSubmit}
               returnKeyType="done"
+              autoCorrect={false}
             />
             <TextInput
               style={styles.abbreviationInput}
-              placeholder="Abr."
+              placeholder="Abr.r"
               placeholderTextColor="#666"
               value={awayAbbreviation}
               onChangeText={handleAwayAbbreviationChange}
               returnKeyType="done"
+              autoCorrect={false}
             />
             {renderPlayerInputs(awayPlayers, false)}
           </View>

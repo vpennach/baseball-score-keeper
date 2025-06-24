@@ -38,10 +38,18 @@ type GameState = {
   firstBase: boolean;
   secondBase: boolean;
   thirdBase: boolean;
+  currentBatter: string;
+  currentBatterIndex: number;
+  currentBatterIsHome: boolean;
+  nextHomeBatter: number;
+  nextAwayBatter: number;
 };
 
 export default function GameScreen({ navigation, route }: GameScreenProps) {
   const { homeTeam, awayTeam, homePlayers, awayPlayers, maxInnings } = route.params;
+
+  // Game state history for back button
+  const [gameHistory, setGameHistory] = useState<GameState[]>([]);
 
   // Lock to landscape mode when screen loads
   useEffect(() => {
@@ -85,7 +93,556 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     firstBase: false,
     secondBase: false,
     thirdBase: false,
+    currentBatter: awayPlayers[0] || '',
+    currentBatterIndex: 0,
+    currentBatterIsHome: false,
+    nextHomeBatter: 1,
+    nextAwayBatter: 1,
   });
+
+  const saveGameState = (state: GameState) => {
+    setGameHistory(prev => [...prev, state]);
+  };
+
+  const goBack = () => {
+    if (gameHistory.length > 0) {
+      const previousState = gameHistory[gameHistory.length - 1];
+      setGameState(previousState);
+      setGameHistory(prev => prev.slice(0, -1));
+    }
+  };
+
+  const advanceRunners = (basesAdvanced: number) => {
+    setGameState(prev => {
+      let runs = 0;
+      let newFirstBase = prev.firstBase;
+      let newSecondBase = prev.secondBase;
+      let newThirdBase = prev.thirdBase;
+
+      // Advance runners based on how many bases the hit was worth
+      if (basesAdvanced >= 3) {
+        // Triple or HR - all runners score
+        if (prev.firstBase) runs++;
+        if (prev.secondBase) runs++;
+        if (prev.thirdBase) runs++;
+        newFirstBase = false;
+        newSecondBase = false;
+        newThirdBase = false;
+      } else if (basesAdvanced === 2) {
+        // Double - runners advance 2 bases
+        if (prev.thirdBase) runs++;
+        if (prev.secondBase) runs++;
+        if (prev.firstBase) {
+          newThirdBase = true;
+        }
+        newSecondBase = false;
+        newFirstBase = false;
+      } else if (basesAdvanced === 1) {
+        // Single - runners advance 1 base
+        if (prev.thirdBase) {
+          runs++;
+          newThirdBase = false; // Runner scored, clear third base
+        }
+        if (prev.secondBase) {
+          newThirdBase = true; // Runner advances to third
+          newSecondBase = false; // Clear second base
+        }
+        if (prev.firstBase) {
+          newSecondBase = true; // Runner advances to second
+          newFirstBase = false; // Clear first base
+        }
+        newFirstBase = true; // Batter reaches first
+      }
+
+      return {
+        ...prev,
+        firstBase: newFirstBase,
+        secondBase: newSecondBase,
+        thirdBase: newThirdBase,
+        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
+        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+      };
+    });
+  };
+
+  const handle1B = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      // Update current batter stats
+      const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+      const currentPlayerStats = teamStats[prev.currentBatter];
+      const newTeamStats = {
+        ...teamStats,
+        [prev.currentBatter]: {
+          ...currentPlayerStats,
+          atBats: currentPlayerStats.atBats + 1,
+          hits: currentPlayerStats.hits + 1,
+        }
+      };
+
+      // Advance runners and calculate runs
+      let runs = 0;
+      let newFirstBase = prev.firstBase;
+      let newSecondBase = prev.secondBase;
+      let newThirdBase = prev.thirdBase;
+
+      // Single - runners advance 1 base
+      if (prev.thirdBase) {
+        runs++;
+        newThirdBase = false; // Runner scored, clear third base
+      }
+      if (prev.secondBase) {
+        newThirdBase = true; // Runner advances to third
+        newSecondBase = false; // Clear second base
+      }
+      if (prev.firstBase) {
+        newSecondBase = true; // Runner advances to second
+        newFirstBase = false; // Clear first base
+      }
+      newFirstBase = true; // Batter reaches first
+
+      // Calculate RBIs for the batter
+      const rbis = runs;
+
+      // Increment next batter number for current team
+      const newNextHomeBatter = prev.currentBatterIsHome ? prev.nextHomeBatter + 1 : prev.nextHomeBatter;
+      const newNextAwayBatter = !prev.currentBatterIsHome ? prev.nextAwayBatter + 1 : prev.nextAwayBatter;
+      
+      // Get next batter using modulo arithmetic
+      const players = prev.currentBatterIsHome ? homePlayers : awayPlayers;
+      const nextBatterNumber = prev.currentBatterIsHome ? newNextHomeBatter : newNextAwayBatter;
+      const nextBatterIndex = (nextBatterNumber - 1) % players.length;
+      const nextBatter = players[nextBatterIndex];
+
+      return {
+        ...prev,
+        firstBase: newFirstBase,
+        secondBase: newSecondBase,
+        thirdBase: newThirdBase,
+        balls: 0,
+        strikes: 0,
+        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
+        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
+          ...newTeamStats,
+          [prev.currentBatter]: {
+            ...newTeamStats[prev.currentBatter],
+            rbis: newTeamStats[prev.currentBatter].rbis + rbis,
+          }
+        },
+        currentBatter: nextBatter,
+        currentBatterIndex: nextBatterIndex,
+        currentBatterIsHome: prev.currentBatterIsHome,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+      };
+    });
+  };
+
+  const handle2B = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      // Update current batter stats
+      const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+      const currentPlayerStats = teamStats[prev.currentBatter];
+      const newTeamStats = {
+        ...teamStats,
+        [prev.currentBatter]: {
+          ...currentPlayerStats,
+          atBats: currentPlayerStats.atBats + 1,
+          hits: currentPlayerStats.hits + 1,
+        }
+      };
+
+      // Double - runners advance 2 bases
+      let runs = 0;
+      let newFirstBase = false;
+      let newSecondBase = false;
+      let newThirdBase = false;
+
+      if (prev.thirdBase) runs++;
+      if (prev.secondBase) runs++;
+      if (prev.firstBase) {
+        newThirdBase = true;
+      }
+      newSecondBase = true; // Batter reaches second
+
+      // Calculate RBIs for the batter
+      const rbis = runs;
+
+      // Increment next batter number for current team
+      const newNextHomeBatter = prev.currentBatterIsHome ? prev.nextHomeBatter + 1 : prev.nextHomeBatter;
+      const newNextAwayBatter = !prev.currentBatterIsHome ? prev.nextAwayBatter + 1 : prev.nextAwayBatter;
+      
+      // Get next batter using modulo arithmetic
+      const players = prev.currentBatterIsHome ? homePlayers : awayPlayers;
+      const nextBatterNumber = prev.currentBatterIsHome ? newNextHomeBatter : newNextAwayBatter;
+      const nextBatterIndex = (nextBatterNumber - 1) % players.length;
+      const nextBatter = players[nextBatterIndex];
+      
+      return {
+        ...prev,
+        firstBase: newFirstBase,
+        secondBase: newSecondBase,
+        thirdBase: newThirdBase,
+        balls: 0,
+        strikes: 0,
+        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
+        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
+          ...newTeamStats,
+          [prev.currentBatter]: {
+            ...newTeamStats[prev.currentBatter],
+            rbis: newTeamStats[prev.currentBatter].rbis + rbis,
+          }
+        },
+        currentBatter: nextBatter,
+        currentBatterIndex: nextBatterIndex,
+        currentBatterIsHome: prev.currentBatterIsHome,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+      };
+    });
+  };
+
+  const handle3B = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      // Update current batter stats
+      const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+      const currentPlayerStats = teamStats[prev.currentBatter];
+      const newTeamStats = {
+        ...teamStats,
+        [prev.currentBatter]: {
+          ...currentPlayerStats,
+          atBats: currentPlayerStats.atBats + 1,
+          hits: currentPlayerStats.hits + 1,
+        }
+      };
+
+      // Triple - all runners score, batter reaches third
+      let runs = 0;
+      if (prev.firstBase) runs++;
+      if (prev.secondBase) runs++;
+      if (prev.thirdBase) runs++;
+
+      // Calculate RBIs for the batter
+      const rbis = runs;
+
+      // Increment next batter number for current team
+      const newNextHomeBatter = prev.currentBatterIsHome ? prev.nextHomeBatter + 1 : prev.nextHomeBatter;
+      const newNextAwayBatter = !prev.currentBatterIsHome ? prev.nextAwayBatter + 1 : prev.nextAwayBatter;
+      
+      // Get next batter using modulo arithmetic
+      const players = prev.currentBatterIsHome ? homePlayers : awayPlayers;
+      const nextBatterNumber = prev.currentBatterIsHome ? newNextHomeBatter : newNextAwayBatter;
+      const nextBatterIndex = (nextBatterNumber - 1) % players.length;
+      const nextBatter = players[nextBatterIndex];
+      
+      return {
+        ...prev,
+        firstBase: false,
+        secondBase: false,
+        thirdBase: true, // Batter reaches third
+        balls: 0,
+        strikes: 0,
+        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
+        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
+          ...newTeamStats,
+          [prev.currentBatter]: {
+            ...newTeamStats[prev.currentBatter],
+            rbis: newTeamStats[prev.currentBatter].rbis + rbis,
+          }
+        },
+        currentBatter: nextBatter,
+        currentBatterIndex: nextBatterIndex,
+        currentBatterIsHome: prev.currentBatterIsHome,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+      };
+    });
+  };
+
+  const handleHR = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      // Update current batter stats
+      const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+      const currentPlayerStats = teamStats[prev.currentBatter];
+      const newTeamStats = {
+        ...teamStats,
+        [prev.currentBatter]: {
+          ...currentPlayerStats,
+          atBats: currentPlayerStats.atBats + 1,
+          hits: currentPlayerStats.hits + 1,
+        }
+      };
+
+      // Home run - all runners score plus the batter
+      let runs = 1; // Batter scores
+      if (prev.firstBase) runs++;
+      if (prev.secondBase) runs++;
+      if (prev.thirdBase) runs++;
+
+      // Calculate RBIs for the batter
+      const rbis = runs;
+
+      // Increment next batter number for current team
+      const newNextHomeBatter = prev.currentBatterIsHome ? prev.nextHomeBatter + 1 : prev.nextHomeBatter;
+      const newNextAwayBatter = !prev.currentBatterIsHome ? prev.nextAwayBatter + 1 : prev.nextAwayBatter;
+      
+      // Get next batter using modulo arithmetic
+      const players = prev.currentBatterIsHome ? homePlayers : awayPlayers;
+      const nextBatterNumber = prev.currentBatterIsHome ? newNextHomeBatter : newNextAwayBatter;
+      const nextBatterIndex = (nextBatterNumber - 1) % players.length;
+      const nextBatter = players[nextBatterIndex];
+      
+      return {
+        ...prev,
+        firstBase: false,
+        secondBase: false,
+        thirdBase: false,
+        balls: 0,
+        strikes: 0,
+        homeScore: prev.currentBatterIsHome ? prev.homeScore + runs : prev.homeScore,
+        awayScore: !prev.currentBatterIsHome ? prev.awayScore + runs : prev.awayScore,
+        [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: {
+          ...newTeamStats,
+          [prev.currentBatter]: {
+            ...newTeamStats[prev.currentBatter],
+            rbis: newTeamStats[prev.currentBatter].rbis + rbis,
+          }
+        },
+        currentBatter: nextBatter,
+        currentBatterIndex: nextBatterIndex,
+        currentBatterIsHome: prev.currentBatterIsHome,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+      };
+    });
+  };
+
+  const handleStrike = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      const newStrikes = prev.strikes + 1;
+      
+      if (newStrikes === 3) {
+        // Strikeout - add out and move to next batter
+        let newOuts = prev.outs + 1;
+        let newInning = prev.inning;
+        let newIsTopInning = prev.isTopInning;
+        let newCurrentBatter = prev.currentBatter;
+        let newCurrentBatterIndex = prev.currentBatterIndex;
+        let newCurrentBatterIsHome = prev.currentBatterIsHome;
+        let newFirstBase = prev.firstBase;
+        let newSecondBase = prev.secondBase;
+        let newThirdBase = prev.thirdBase;
+        let newNextHomeBatter = prev.nextHomeBatter;
+        let newNextAwayBatter = prev.nextAwayBatter;
+
+        // Update current batter stats (strikeout - only at bat, no hit)
+        const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+        const currentPlayerStats = teamStats[prev.currentBatter];
+        const newTeamStats = {
+          ...teamStats,
+          [prev.currentBatter]: {
+            ...currentPlayerStats,
+            atBats: currentPlayerStats.atBats + 1,
+          }
+        };
+
+        if (newOuts === 3) {
+          // 3 outs - switch teams/innings
+          newOuts = 0;
+          
+          // Increment next batter number for the team that just finished
+          if (prev.currentBatterIsHome) {
+            newNextHomeBatter = prev.nextHomeBatter + 1;
+          } else {
+            newNextAwayBatter = prev.nextAwayBatter + 1;
+          }
+          
+          if (prev.isTopInning) {
+            // Switch from top to bottom (away -> home)
+            newIsTopInning = false;
+            
+            // Use saved next home batter number
+            const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
+            newCurrentBatter = homePlayers[homeBatterIndex];
+            newCurrentBatterIndex = homeBatterIndex;
+            newCurrentBatterIsHome = true;
+            
+          } else {
+            // Switch from bottom to top of next inning (home -> away)
+
+            newIsTopInning = true;
+            newInning = prev.inning + 1;
+            
+            // Use saved next away batter number
+            const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
+            newCurrentBatter = awayPlayers[awayBatterIndex];
+            newCurrentBatterIndex = awayBatterIndex;
+            newCurrentBatterIsHome = false;
+            
+          }
+          // Clear bases when switching teams
+          newFirstBase = false;
+          newSecondBase = false;
+          newThirdBase = false;
+        } else {
+          // Still same team's turn - increment next batter number and advance to next batter
+          if (prev.currentBatterIsHome) {
+            newNextHomeBatter = prev.nextHomeBatter + 1;
+            const homeBatterIndex = (newNextHomeBatter - 1) % homePlayers.length;
+            newCurrentBatter = homePlayers[homeBatterIndex];
+            newCurrentBatterIndex = homeBatterIndex;
+          } else {
+            newNextAwayBatter = prev.nextAwayBatter + 1;
+            const awayBatterIndex = (newNextAwayBatter - 1) % awayPlayers.length;
+            newCurrentBatter = awayPlayers[awayBatterIndex];
+            newCurrentBatterIndex = awayBatterIndex;
+          }
+          
+        }
+
+        return {
+          ...prev,
+          strikes: 0,
+          balls: 0,
+          outs: newOuts,
+          inning: newInning,
+          isTopInning: newIsTopInning,
+          currentBatter: newCurrentBatter,
+          currentBatterIndex: newCurrentBatterIndex,
+          currentBatterIsHome: newCurrentBatterIsHome,
+          firstBase: newFirstBase,
+          secondBase: newSecondBase,
+          thirdBase: newThirdBase,
+          nextHomeBatter: newNextHomeBatter,
+          nextAwayBatter: newNextAwayBatter,
+          [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: newTeamStats,
+        };
+      } else {
+        // Just a strike - update count
+        return {
+          ...prev,
+          strikes: newStrikes,
+        };
+      }
+    });
+  };
+
+  const handleOut = () => {
+    const currentState = { ...gameState };
+    saveGameState(currentState);
+
+    setGameState(prev => {
+      let newOuts = prev.outs + 1;
+      let newInning = prev.inning;
+      let newIsTopInning = prev.isTopInning;
+      let newCurrentBatter = prev.currentBatter;
+      let newCurrentBatterIndex = prev.currentBatterIndex;
+      let newCurrentBatterIsHome = prev.currentBatterIsHome;
+      let newFirstBase = prev.firstBase;
+      let newSecondBase = prev.secondBase;
+      let newThirdBase = prev.thirdBase;
+      let newNextHomeBatter = prev.nextHomeBatter;
+      let newNextAwayBatter = prev.nextAwayBatter;
+
+      // Update current batter stats (out - only at bat, no hit)
+      const teamStats = prev.currentBatterIsHome ? prev.homePlayerStats : prev.awayPlayerStats;
+      const currentPlayerStats = teamStats[prev.currentBatter];
+      const newTeamStats = {
+        ...teamStats,
+        [prev.currentBatter]: {
+          ...currentPlayerStats,
+          atBats: currentPlayerStats.atBats + 1,
+        }
+      };
+
+      if (newOuts === 3) {
+        // 3 outs - switch teams/innings
+        newOuts = 0;
+        
+        
+        // Increment next batter number for the team that just finished
+        if (prev.currentBatterIsHome) {
+          newNextHomeBatter = prev.nextHomeBatter + 1;
+        } else {
+          newNextAwayBatter = prev.nextAwayBatter + 1;
+        }
+        
+        if (prev.isTopInning) {
+          // Switch from top to bottom (away -> home)
+          newIsTopInning = false;
+          
+          // Use saved next home batter number
+          const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
+          newCurrentBatter = homePlayers[homeBatterIndex];
+          newCurrentBatterIndex = homeBatterIndex;
+          newCurrentBatterIsHome = true;
+          
+        } else {
+          // Switch from bottom to top of next inning (home -> away)
+          newIsTopInning = true;
+          newInning = prev.inning + 1;
+          
+          // Use saved next away batter number
+          const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
+          newCurrentBatter = awayPlayers[awayBatterIndex];
+          newCurrentBatterIndex = awayBatterIndex;
+          newCurrentBatterIsHome = false;
+        }
+        // Clear bases when switching teams
+        newFirstBase = false;
+        newSecondBase = false;
+        newThirdBase = false;
+      } else {
+        // Still same team's turn - increment next batter number and advance to next batter
+        if (prev.currentBatterIsHome) {
+          newNextHomeBatter = prev.nextHomeBatter + 1;
+          const homeBatterIndex = (newNextHomeBatter - 1) % homePlayers.length;
+          newCurrentBatter = homePlayers[homeBatterIndex];
+          newCurrentBatterIndex = homeBatterIndex;
+        } else {
+          newNextAwayBatter = prev.nextAwayBatter + 1;
+          const awayBatterIndex = (newNextAwayBatter - 1) % awayPlayers.length;
+          newCurrentBatter = awayPlayers[awayBatterIndex];
+          newCurrentBatterIndex = awayBatterIndex;
+        }
+      }
+
+      return {
+        ...prev,
+        strikes: 0,
+        balls: 0,
+        outs: newOuts,
+        inning: newInning,
+        isTopInning: newIsTopInning,
+        currentBatter: newCurrentBatter,
+        currentBatterIndex: newCurrentBatterIndex,
+        currentBatterIsHome: newCurrentBatterIsHome,
+        firstBase: newFirstBase,
+        secondBase: newSecondBase,
+        thirdBase: newThirdBase,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+        [prev.currentBatterIsHome ? 'homePlayerStats' : 'awayPlayerStats']: newTeamStats,
+      };
+    });
+  };
 
   const updatePlayerStats = (
     player: string,
@@ -167,13 +724,27 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
   return (
     <View style={styles.container}>
       <StripedBackground />
+      
+      {/* End Game Button - Absolute positioned in top right */}
+      <TouchableOpacity style={styles.endGameButton} onPress={endGame}>
+        <Text style={styles.endGameButtonText}>END GAME</Text>
+      </TouchableOpacity>
+
+      {/* Back Button - Absolute positioned in top left */}
+      <TouchableOpacity style={styles.backButton} onPress={goBack}>
+        <Text style={styles.backButtonText}>BACK 1 PLAY</Text>
+      </TouchableOpacity>
+
       <View style={styles.gameLayout}>
         {/* Away Team Lineup (Left Side) */}
         <View style={styles.lineupSection}>
           <Text style={styles.teamTitle}>{awayTeam}</Text>
           <ScrollView style={styles.lineupScroll}>
             {awayPlayers.map((player, index) => (
-              <View key={player} style={styles.lineupItem}>
+              <View key={player} style={[
+                styles.lineupItem,
+                gameState.currentBatter === player && !gameState.currentBatterIsHome && styles.currentBatter
+              ]}>
                 <Text style={styles.lineupNumber}>{index + 1}.</Text>
                 <Text style={styles.lineupName}>{truncatePlayerName(player)}</Text>
                 <Text style={styles.playerStats}>
@@ -185,63 +756,94 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         </View>
 
         {/* Score Bug (Center) */}
-        <View style={styles.scoreBug}>
-          {/* Top Section - Team Names and Scores */}
-          <View style={styles.topSection}>
-            {/* Away Team Row */}
-            <View style={styles.teamRow}>
-              <View style={styles.scoreBox}>
-                <Text style={styles.scoreNumber}>{gameState.awayScore}</Text>
+        <View style={styles.centerSection}>
+          <View style={styles.scoreBug}>
+            {/* Top Section - Team Names and Scores */}
+            <View style={styles.topSection}>
+              {/* Away Team Row */}
+              <View style={styles.teamRow}>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreNumber}>{gameState.awayScore}</Text>
+                </View>
+                <View style={styles.teamNameBox}>
+                  <Text style={styles.teamNameText}>{route.params.awayAbbreviation}</Text>
+                </View>
               </View>
-              <View style={styles.teamNameBox}>
-                <Text style={styles.teamNameText}>{awayTeam}</Text>
+              
+              {/* Home Team Row */}
+              <View style={styles.teamRow}>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreNumber}>{gameState.homeScore}</Text>
+                </View>
+                <View style={styles.teamNameBox}>
+                  <Text style={styles.teamNameText}>{route.params.homeAbbreviation}</Text>
+                </View>
               </View>
             </View>
-            
-            {/* Home Team Row */}
-            <View style={styles.teamRow}>
-              <View style={styles.scoreBox}>
-                <Text style={styles.scoreNumber}>{gameState.homeScore}</Text>
+
+            {/* Bottom Section - Split into left and right */}
+            <View style={styles.bottomSection}>
+              {/* Left Side - Pitch Count and Outs */}
+              <View style={styles.leftSection}>
+                <Text style={styles.pitchCount}>{gameState.balls}-{gameState.strikes}</Text>
+                <View style={styles.outsContainer}>
+                  <View style={[styles.outSquare, gameState.outs >= 1 && styles.outSquareActive]} />
+                  <View style={[styles.outSquare, gameState.outs >= 2 && styles.outSquareActive]} />
+                </View>
               </View>
-              <View style={styles.teamNameBox}>
-                <Text style={styles.teamNameText}>{homeTeam}</Text>
+
+              {/* Right Side - Bases and Inning */}
+              <View style={styles.rightSection}>
+                <View style={styles.basesContainer}>
+                  <View style={[styles.baseSquare, styles.secondBase, gameState.secondBase && styles.baseOccupied]} />
+                  <View style={[styles.baseSquare, styles.thirdBase, gameState.thirdBase && styles.baseOccupied]} />
+                  <View style={[styles.baseSquare, styles.firstBase, gameState.firstBase && styles.baseOccupied]} />
+                </View>
+                <View style={styles.inningBox}>
+                  <Text style={styles.inningText}>
+                    {gameState.isTopInning ? 'T' : 'B'}{gameState.inning}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Bottom Section - Split into left and right */}
-          <View style={styles.bottomSection}>
-            {/* Left Side - Pitch Count and Outs */}
-            <View style={styles.leftSection}>
-              <Text style={styles.pitchCount}>{gameState.balls}-{gameState.strikes}</Text>
-              <View style={styles.outsContainer}>
-                <View style={[styles.outSquare, gameState.outs >= 1 && styles.outSquareActive]} />
-                <View style={[styles.outSquare, gameState.outs >= 2 && styles.outSquareActive]} />
-              </View>
+          {/* Game Control Buttons */}
+          <View style={styles.buttonContainer}>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.gameButton} onPress={handle1B}>
+                <Text style={styles.buttonText}>1B</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.gameButton} onPress={handle2B}>
+                <Text style={styles.buttonText}>2B</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.gameButton} onPress={handle3B}>
+                <Text style={styles.buttonText}>3B</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.gameButton, styles.hrButton]} onPress={handleHR}>
+                <Text style={styles.buttonText}>HR</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Right Side - Bases and Inning */}
-            <View style={styles.rightSection}>
-              <View style={styles.basesContainer}>
-                <View style={[styles.baseSquare, styles.secondBase, gameState.secondBase && styles.baseOccupied]} />
-                <View style={[styles.baseSquare, styles.thirdBase, gameState.thirdBase && styles.baseOccupied]} />
-                <View style={[styles.baseSquare, styles.firstBase, gameState.firstBase && styles.baseOccupied]} />
-              </View>
-              <View style={styles.inningBox}>
-                <Text style={styles.inningText}>
-                  {gameState.isTopInning ? 'T' : 'B'}{gameState.inning}
-                </Text>
-              </View>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={[styles.gameButton, styles.strikeButton]} onPress={handleStrike}>
+                <Text style={styles.buttonText}>STRIKE</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.gameButton, styles.outButton]} onPress={handleOut}>
+                <Text style={styles.buttonText}>OUT</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
 
         {/* Home Team Lineup (Right Side) */}
-        <View style={styles.lineupSection}>
+        <View style={styles.homeLineupSection}>
           <Text style={styles.teamTitle}>{homeTeam}</Text>
           <ScrollView style={styles.lineupScroll}>
             {homePlayers.map((player, index) => (
-              <View key={player} style={styles.lineupItem}>
+              <View key={player} style={[
+                styles.lineupItem,
+                gameState.currentBatter === player && gameState.currentBatterIsHome && styles.currentBatter
+              ]}>
                 <Text style={styles.lineupNumber}>{index + 1}.</Text>
                 <Text style={styles.lineupName}>{truncatePlayerName(player)}</Text>
                 <Text style={styles.playerStats}>
@@ -267,7 +869,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lineupSection: {
-    flex: 1,
+    flex: 2,
     padding: 5,
     marginHorizontal: 5,
     paddingLeft: 30
@@ -327,7 +929,7 @@ const styles = StyleSheet.create({
     borderColor: '#000000',
     alignSelf: 'center',
     marginTop: 'auto',
-    marginBottom: 200,
+    marginBottom: 20,
   },
   topSection: {
     width: '100%',
@@ -441,5 +1043,84 @@ const styles = StyleSheet.create({
   },
   baseOccupied: {
     backgroundColor: '#FFD700',
+  },
+  centerSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    maxWidth: 250,
+  },
+  buttonContainer: {
+    alignItems: 'center',
+    marginTop: 0,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  gameButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+    marginHorizontal: 5,
+    minWidth: 45,
+    alignItems: 'center',
+  },
+  buttonText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+  },
+  hrButton: {
+    backgroundColor: '#FFD700',
+  },
+  strikeButton: {
+    backgroundColor: '#FF0000',
+  },
+  outButton: {
+    backgroundColor: '#FF0000',
+  },
+  endGameButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 55,
+    backgroundColor: '#FF0000',
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+    zIndex: 1000,
+  },
+  endGameButtonText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 10,
+    left: 55,
+    backgroundColor: '#000000',
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+    zIndex: 1000,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+  },
+  homeLineupSection: {
+    flex: 2,
+    padding: 5,
+    marginHorizontal: 5,
+    paddingLeft:50
+  },
+  currentBatter: {
+    backgroundColor: '#FFFF00',
   },
 }); 
