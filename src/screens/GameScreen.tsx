@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../types';
+import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
 import PlayerStatsModal from '../components/PlayerStatsModal';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -61,6 +61,9 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
   // Player stats modal state
   const [showPlayerStats, setShowPlayerStats] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
+
+  // Double play modal state
+  const [showDoublePlayModal, setShowDoublePlayModal] = useState(false);
 
   // Lock to landscape mode when screen loads
   useEffect(() => {
@@ -649,20 +652,20 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           }
           
           if (prev.isTopInning) {
-            // Switch from top to bottom (away -> home)
+            // Switch to bottom of inning
             newIsTopInning = false;
             
             // Check if game should end (home team already winning in last inning)
             shouldEndGame = checkGameEnd(prev.inning, newIsTopInning, prev.homeScore, prev.awayScore);
             
             // Use saved next home batter number
-            const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
+            const homeBatterIndex = (prev.nextHomeBatter - 1 + homePlayers.length) % homePlayers.length;
             newCurrentBatter = homePlayers[homeBatterIndex];
             newCurrentBatterIndex = homeBatterIndex;
             newCurrentBatterIsHome = true;
             
           } else {
-            // Switch from bottom to top of next inning (home -> away)
+            // Switch to top of next inning
             newIsTopInning = true;
             newInning = prev.inning + 1;
             
@@ -670,7 +673,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
             shouldEndGame = checkGameEnd(newInning, newIsTopInning, prev.homeScore, prev.awayScore);
             
             // Use saved next away batter number
-            const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
+            const awayBatterIndex = (prev.nextAwayBatter - 1 + awayPlayers.length) % awayPlayers.length;
             newCurrentBatter = awayPlayers[awayBatterIndex];
             newCurrentBatterIndex = awayBatterIndex;
             newCurrentBatterIsHome = false;
@@ -765,20 +768,20 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         }
         
         if (prev.isTopInning) {
-          // Switch from top to bottom (away -> home)
+          // Switch to bottom of inning
           newIsTopInning = false;
           
           // Check if game should end (home team already winning in last inning)
           shouldEndGame = checkGameEnd(prev.inning, newIsTopInning, prev.homeScore, prev.awayScore);
           
           // Use saved next home batter number
-          const homeBatterIndex = (prev.nextHomeBatter - 1) % homePlayers.length;
+          const homeBatterIndex = (prev.nextHomeBatter - 1 + homePlayers.length) % homePlayers.length;
           newCurrentBatter = homePlayers[homeBatterIndex];
           newCurrentBatterIndex = homeBatterIndex;
           newCurrentBatterIsHome = true;
           
         } else {
-          // Switch from bottom to top of next inning (home -> away)
+          // Switch to top of next inning
           newIsTopInning = true;
           newInning = prev.inning + 1;
           
@@ -786,7 +789,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           shouldEndGame = checkGameEnd(newInning, newIsTopInning, prev.homeScore, prev.awayScore);
           
           // Use saved next away batter number
-          const awayBatterIndex = (prev.nextAwayBatter - 1) % awayPlayers.length;
+          const awayBatterIndex = (prev.nextAwayBatter - 1 + awayPlayers.length) % awayPlayers.length;
           newCurrentBatter = awayPlayers[awayBatterIndex];
           newCurrentBatterIndex = awayBatterIndex;
           newCurrentBatterIsHome = false;
@@ -885,6 +888,201 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     updatePlayerStats(player, isHomeTeam, {
       rbis: gameState[isHomeTeam ? 'homePlayerStats' : 'awayPlayerStats'][player].rbis + 1,
     });
+  };
+
+  // Helper function to check if any runners are on base
+  const hasRunnersOnBase = () => {
+    return gameState.firstBase !== null || gameState.secondBase !== null || gameState.thirdBase !== null;
+  };
+
+  // Helper function to check if double play is allowed
+  const canDoublePlay = () => {
+    return hasRunnersOnBase() && gameState.outs < 2;
+  };
+
+  // Helper function to count runners on base
+  const countRunnersOnBase = () => {
+    let count = 0;
+    if (gameState.firstBase !== null) count++;
+    if (gameState.secondBase !== null) count++;
+    if (gameState.thirdBase !== null) count++;
+    return count;
+  };
+
+  // Helper function to get available base options for double play
+  const getAvailableBaseOptions = () => {
+    const options = [];
+    if (gameState.firstBase !== null) options.push('1B');
+    if (gameState.secondBase !== null) options.push('2B');
+    if (gameState.thirdBase !== null) options.push('3B');
+    return options;
+  };
+
+  // Handle double play button press
+  const handleDoublePlay = () => {
+    if (!hasRunnersOnBase()) {
+      return; // Button should be disabled, but just in case
+    }
+
+    const runnerCount = countRunnersOnBase();
+    
+    if (runnerCount === 1 || gameState.outs >= 1) {
+      // Single runner or already 1+ outs - no need for modal
+      executeDoublePlay(null);
+    } else {
+      // Multiple runners and 0 outs - show modal to choose which runner
+      setShowDoublePlayModal(true);
+    }
+  };
+
+  // Execute the double play
+  const executeDoublePlay = (selectedBase: string | null) => {
+    saveGameState(gameState);
+    
+    setGameState(prev => {
+      // Record out for current batter (without advancing to next batter)
+      const currentBatter = prev.currentBatter;
+      const isHomeTeam = prev.currentBatterIsHome;
+      
+      // Update stats directly without calling recordAtBat
+      let newHomePlayerStats = prev.homePlayerStats;
+      let newAwayPlayerStats = prev.awayPlayerStats;
+      
+      if (isHomeTeam) {
+        const currentStats = prev.homePlayerStats[currentBatter];
+        newHomePlayerStats = {
+          ...prev.homePlayerStats,
+          [currentBatter]: {
+            ...currentStats,
+            atBats: currentStats.atBats + 1,
+          },
+        };
+      } else {
+        const currentStats = prev.awayPlayerStats[currentBatter];
+        newAwayPlayerStats = {
+          ...prev.awayPlayerStats,
+          [currentBatter]: {
+            ...currentStats,
+            atBats: currentStats.atBats + 1,
+          },
+        };
+      }
+      
+      let newFirstBase = prev.firstBase;
+      let newSecondBase = prev.secondBase;
+      let newThirdBase = prev.thirdBase;
+      let newOuts = prev.outs + 1;
+
+      // Remove the selected runner (if specified) or just clear bases
+      if (selectedBase === '1B') {
+        newFirstBase = null;
+      } else if (selectedBase === '2B') {
+        newSecondBase = null;
+      } else if (selectedBase === '3B') {
+        newThirdBase = null;
+      } else {
+        // No specific runner selected, clear all bases
+        newFirstBase = null;
+        newSecondBase = null;
+        newThirdBase = null;
+      }
+
+      // Add second out
+      newOuts += 1;
+
+      // Check if inning should end
+      let newInning = prev.inning;
+      let newIsTopInning = prev.isTopInning;
+      let newCurrentBatter = prev.currentBatter;
+      let newCurrentBatterIndex = prev.currentBatterIndex;
+      let newCurrentBatterIsHome = prev.currentBatterIsHome;
+      let newNextHomeBatter = prev.nextHomeBatter;
+      let newNextAwayBatter = prev.nextAwayBatter;
+      let shouldEndGame = false; // Initialize to prevent undefined
+
+      if (newOuts >= 3) {
+        // Inning ends
+        newOuts = 0;
+        
+        // Increment next batter number for the team that just finished
+        if (prev.currentBatterIsHome) {
+          newNextHomeBatter = prev.nextHomeBatter + 1;
+        } else {
+          newNextAwayBatter = prev.nextAwayBatter + 1;
+        }
+        
+        if (prev.isTopInning) {
+          // Check if game should end BEFORE switching to bottom of inning
+          // (home team already winning in last inning)
+          shouldEndGame = checkGameEnd(prev.inning, false, prev.homeScore, prev.awayScore);
+          
+          if (!shouldEndGame) {
+            // Switch to bottom of inning
+            newIsTopInning = false;
+            
+            // Use saved next home batter number
+            const homeBatterIndex = (newNextHomeBatter - 1 + homePlayers.length) % homePlayers.length;
+            newCurrentBatter = homePlayers[homeBatterIndex];
+            newCurrentBatterIndex = homeBatterIndex;
+            newCurrentBatterIsHome = true;
+          }
+        } else {
+          // Switch to top of next inning
+          newInning = prev.inning + 1;
+          newIsTopInning = true;
+          
+          // Check if game should end
+          shouldEndGame = checkGameEnd(newInning, newIsTopInning, prev.homeScore, prev.awayScore);
+          
+          if (!shouldEndGame) {
+            // Use saved next away batter number
+            const awayBatterIndex = (newNextAwayBatter - 1 + awayPlayers.length) % awayPlayers.length;
+            newCurrentBatter = awayPlayers[awayBatterIndex];
+            newCurrentBatterIndex = awayBatterIndex;
+            newCurrentBatterIsHome = false;
+          }
+        }
+      } else {
+        // Still same team's turn - increment next batter number and advance to next batter
+        if (prev.currentBatterIsHome) {
+          newNextHomeBatter = prev.nextHomeBatter + 1;
+          const homeBatterIndex = (newNextHomeBatter - 1 + homePlayers.length) % homePlayers.length;
+          newCurrentBatter = homePlayers[homeBatterIndex];
+          newCurrentBatterIndex = homeBatterIndex;
+        } else {
+          newNextAwayBatter = prev.nextAwayBatter + 1;
+          const awayBatterIndex = (newNextAwayBatter - 1 + awayPlayers.length) % awayPlayers.length;
+          newCurrentBatter = awayPlayers[awayBatterIndex];
+          newCurrentBatterIndex = awayBatterIndex;
+        }
+      }
+
+      // Reset count
+      const newBalls = 0;
+      const newStrikes = 0;
+
+      return {
+        ...prev,
+        homePlayerStats: newHomePlayerStats,
+        awayPlayerStats: newAwayPlayerStats,
+        inning: newInning,
+        isTopInning: newIsTopInning,
+        outs: newOuts,
+        firstBase: newFirstBase,
+        secondBase: newSecondBase,
+        thirdBase: newThirdBase,
+        currentBatter: newCurrentBatter,
+        currentBatterIndex: newCurrentBatterIndex,
+        currentBatterIsHome: newCurrentBatterIsHome,
+        nextHomeBatter: newNextHomeBatter,
+        nextAwayBatter: newNextAwayBatter,
+        balls: newBalls,
+        strikes: newStrikes,
+        gameEnded: shouldEndGame || prev.gameEnded,
+      };
+    });
+
+    setShowDoublePlayModal(false);
   };
 
   const endGame = () => {
@@ -1022,6 +1220,20 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
               <TouchableOpacity style={[styles.gameButton, styles.outButton]} onPress={handleOut}>
                 <Text style={styles.buttonText}>OUT</Text>
               </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.gameButton, 
+                  styles.outButton,
+                  !canDoublePlay() && styles.disabledButton
+                ]} 
+                onPress={handleDoublePlay}
+                disabled={!canDoublePlay()}
+              >
+                <Text style={[
+                  styles.buttonText,
+                  !canDoublePlay() && styles.disabledButtonText
+                ]}>DP</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1061,6 +1273,62 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
           { atBats: 0, hits: 0, runs: 0, rbis: 0, singles: 0, doubles: 0, triples: 0, homers: 0, totalBases: 0 }
         }
       />
+
+      {/* Double Play Modal */}
+      {showDoublePlayModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Which runner got out?</Text>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity 
+                style={[
+                  styles.modalButton,
+                  gameState.firstBase === null && styles.disabledModalButton
+                ]}
+                onPress={() => executeDoublePlay('1B')}
+                disabled={gameState.firstBase === null}
+              >
+                <Text style={[
+                  styles.modalButtonText,
+                  gameState.firstBase === null && styles.disabledModalButtonText
+                ]}>1B</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.modalButton,
+                  gameState.secondBase === null && styles.disabledModalButton
+                ]}
+                onPress={() => executeDoublePlay('2B')}
+                disabled={gameState.secondBase === null}
+              >
+                <Text style={[
+                  styles.modalButtonText,
+                  gameState.secondBase === null && styles.disabledModalButtonText
+                ]}>2B</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.modalButton,
+                  gameState.thirdBase === null && styles.disabledModalButton
+                ]}
+                onPress={() => executeDoublePlay('3B')}
+                disabled={gameState.thirdBase === null}
+              >
+                <Text style={[
+                  styles.modalButtonText,
+                  gameState.thirdBase === null && styles.disabledModalButtonText
+                ]}>3B</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={() => setShowDoublePlayModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>CANCEL</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Game End Overlay */}
       {gameState.gameEnded && (
@@ -1310,6 +1578,82 @@ const styles = StyleSheet.create({
   },
   outButton: {
     backgroundColor: '#FF0000',
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
+    borderColor: '#999999',
+  },
+  disabledButtonText: {
+    color: '#666666',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    alignItems: 'center',
+    borderColor: '#000000',
+    borderWidth: 5,
+    borderRadius: 10,
+    maxWidth: 300,
+    minWidth: 250,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'PressStart2P',
+    color: '#000000',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+
+  },
+  modalButton: {
+    backgroundColor: '#FF0000',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+    marginHorizontal: 8,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
+  },
+  disabledModalButton: {
+    backgroundColor: '#CCCCCC',
+    borderColor: '#999999',
+  },
+  disabledModalButtonText: {
+    color: '#666666',
+  },
+  cancelButton: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontFamily: 'PressStart2P',
+    color: '#FFFFFF',
   },
   endGameButton: {
     position: 'absolute',
