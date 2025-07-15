@@ -2,6 +2,62 @@ const express = require('express');
 const router = express.Router();
 const Player = require('../models/Player');
 
+// @route   POST /api/players
+// @desc    Create a new player
+// @access  Public
+router.post('/', async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Player name is required'
+      });
+    }
+
+    // Check if player already exists
+    const existingPlayer = await Player.findOne({ name: name.trim() });
+    if (existingPlayer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Player already exists'
+      });
+    }
+
+    // Create new player
+    const player = new Player({
+      name: name.trim(),
+      teams: [],
+      careerStats: {
+        atBats: 0,
+        hits: 0,
+        runs: 0,
+        rbis: 0,
+        walks: 0,
+        strikeouts: 0,
+        battingAverage: 0,
+        onBasePercentage: 0
+      },
+      totalGamesPlayed: 0
+    });
+
+    const savedPlayer = await player.save();
+
+    res.status(201).json({
+      success: true,
+      data: savedPlayer
+    });
+  } catch (error) {
+    console.error('Error creating player:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating player',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/players
 // @desc    Get all players with their statistics
 // @access  Public
