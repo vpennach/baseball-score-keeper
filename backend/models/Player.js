@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const playerSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
+  name: { type: String, required: true, unique: true, lowercase: true },
   teams: [{ type: String }], // Array of all teams this player has played for
   gamesPlayed: { type: Number, default: 0 },
   atBats: { type: Number, default: 0 },
@@ -20,6 +20,12 @@ const playerSchema = new mongoose.Schema({
 // Update the updatedAt field before saving
 playerSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  
+  // Ensure name is lowercase
+  if (this.name) {
+    this.name = this.name.toLowerCase().trim();
+  }
+  
   next();
 });
 

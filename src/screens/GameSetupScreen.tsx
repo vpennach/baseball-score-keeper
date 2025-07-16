@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
 import PlayerAutocomplete from '../components/PlayerAutocomplete';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { capitalizePlayerName, formatNameForDatabase } from '../utils/nameUtils';
 
 type GameSetupScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'GameSetup'>;
@@ -144,7 +145,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
       if (playerIndex === index) return false; // Don't check against self
       const playerTrimmed = player.trim();
       if (playerTrimmed === '') return false; // Ignore empty names
-      return playerTrimmed.toLowerCase() === trimmedName.toLowerCase();
+      return formatNameForDatabase(playerTrimmed) === formatNameForDatabase(trimmedName);
     });
     
     if (isDuplicate) {
@@ -156,9 +157,9 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
       return;
     }
     
-    // Apply trimmed name
+    // Apply capitalized name for display
     const newPlayers = [...homePlayers];
-    newPlayers[index] = trimmedName;
+    newPlayers[index] = capitalizePlayerName(trimmedName);
     setHomePlayers(newPlayers);
   };
 
@@ -179,7 +180,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
       if (playerIndex === homePlayers.length + index) return false; // Don't check against self
       const playerTrimmed = player.trim();
       if (playerTrimmed === '') return false; // Ignore empty names
-      return playerTrimmed.toLowerCase() === trimmedName.toLowerCase();
+      return formatNameForDatabase(playerTrimmed) === formatNameForDatabase(trimmedName);
     });
     
     if (isDuplicate) {
@@ -191,9 +192,9 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
       return;
     }
     
-    // Apply trimmed name
+    // Apply capitalized name for display
     const newPlayers = [...awayPlayers];
-    newPlayers[index] = trimmedName;
+    newPlayers[index] = capitalizePlayerName(trimmedName);
     setAwayPlayers(newPlayers);
   };
 

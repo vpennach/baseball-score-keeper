@@ -50,4 +50,19 @@ export const apiRequest = async <T>(
   }
 };
 
+// Player names API
+export const getPlayerNames = async (): Promise<ApiResponse<string[]>> => {
+  const response = await apiRequest<{ success: boolean; data: string[] }>('/players/names');
+  if (response.success && response.data) {
+    return {
+      success: response.data.success,
+      data: response.data.data
+    };
+  }
+  return {
+    success: false,
+    error: 'Failed to fetch player names'
+  };
+};
+
 export default apiRequest; 

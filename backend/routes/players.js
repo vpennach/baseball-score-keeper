@@ -16,8 +16,8 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Check if player already exists
-    const existingPlayer = await Player.findOne({ name: name.trim() });
+    // Check if player already exists (case-insensitive)
+    const existingPlayer = await Player.findOne({ name: name.trim().toLowerCase() });
     if (existingPlayer) {
       return res.status(400).json({
         success: false,
@@ -29,17 +29,16 @@ router.post('/', async (req, res) => {
     const player = new Player({
       name: name.trim(),
       teams: [],
-      careerStats: {
-        atBats: 0,
-        hits: 0,
-        runs: 0,
-        rbis: 0,
-        walks: 0,
-        strikeouts: 0,
-        battingAverage: 0,
-        onBasePercentage: 0
-      },
-      totalGamesPlayed: 0
+      gamesPlayed: 0,
+      atBats: 0,
+      hits: 0,
+      runs: 0,
+      rbis: 0,
+      singles: 0,
+      doubles: 0,
+      triples: 0,
+      homers: 0,
+      totalBases: 0
     });
 
     const savedPlayer = await player.save();
@@ -92,6 +91,31 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/players/names
+// @desc    Get all player names for autocomplete
+// @access  Public
+router.get('/names', async (req, res) => {
+  try {
+    const players = await Player.find({})
+      .select('name')
+      .sort({ name: 1 });
+
+    const playerNames = players.map(player => player.name);
+
+    res.json({
+      success: true,
+      data: playerNames
+    });
+  } catch (error) {
+    console.error('Error fetching player names:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching player names',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/players/:id
 // @desc    Get a specific player
 // @access  Public
@@ -126,7 +150,7 @@ router.get('/:id', async (req, res) => {
 router.get('/team/:teamName', async (req, res) => {
   try {
     const players = await Player.find({ teams: req.params.teamName })
-      .sort({ battingAverage: -1 });
+      .sort({ name: 1 });
 
     res.json({
       success: true,
@@ -148,9 +172,9 @@ router.get('/team/:teamName', async (req, res) => {
 // @access  Public
 router.get('/stats/leaders', async (req, res) => {
   try {
-    const { stat = 'battingAverage', limit = 10 } = req.query;
+    const { stat = 'hits', limit = 10 } = req.query;
     
-    const validStats = ['battingAverage', 'sluggingPercentage', 'hits', 'runs', 'rbis', 'homers'];
+    const validStats = ['hits', 'runs', 'rbis', 'homers', 'atBats', 'gamesPlayed'];
     
     if (!validStats.includes(stat)) {
       return res.status(400).json({
@@ -162,7 +186,7 @@ router.get('/stats/leaders', async (req, res) => {
     const leaders = await Player.find({ [stat]: { $gt: 0 } })
       .sort({ [stat]: -1 })
       .limit(parseInt(limit))
-      .select(`name team ${stat} gamesPlayed atBats`);
+      .select(`name teams ${stat} gamesPlayed atBats`);
 
     res.json({
       success: true,

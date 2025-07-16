@@ -8,6 +8,8 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { formatNameForDatabase, capitalizePlayerName } from '../utils/nameUtils';
+import { getPlayerNames } from '../services/api';
 
 interface PlayerAutocompleteProps {
   value: string;
@@ -27,35 +29,45 @@ export default function PlayerAutocomplete({
   allPlayerNames = []
 }: PlayerAutocompleteProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [databasePlayers, setDatabasePlayers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const containerRef = useRef<View>(null);
-  
-  // Hardcoded player names for testing
-  const hardcodedPlayers = [
-    'Aaron',
-    'Barry',
-    'Carlos',
-    'David',
-    'Eddie',
-    'Frank',
-    'George',
-    'Henry',
-    'Ivan',
-    'Jack'
-  ];
 
-  // Check if the current value is a new player (not in hardcoded list)
-  const isNewPlayer = value.trim() !== '' && !hardcodedPlayers.some(player => 
-    player.toLowerCase() === value.trim().toLowerCase()
+  // Fetch player names from database on component mount
+  useEffect(() => {
+    fetchPlayerNames();
+  }, []);
+
+  const fetchPlayerNames = async () => {
+    setLoading(true);
+    try {
+      const response = await getPlayerNames();
+      if (response.success && Array.isArray(response.data)) {
+        setDatabasePlayers(response.data);
+      } else {
+        setDatabasePlayers([]); // Defensive: always set an array
+      }
+    } catch (error) {
+      setDatabasePlayers([]); // Defensive: always set an array
+      console.error('Error fetching player names:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check if the current value is a new player (not in database)
+  const isNewPlayer = value.trim() !== '' && !databasePlayers.some(player => 
+    formatNameForDatabase(player) === formatNameForDatabase(value)
   );
 
   // Filter players based on input and exclude already selected names
-  const filteredPlayers = hardcodedPlayers.filter(player => {
-    // Check if this player name matches the input
-    const matchesInput = player.toLowerCase().includes((value || '').toLowerCase());
+  const filteredPlayers = databasePlayers.filter(player => {
+    // If input is empty, show all players (except already selected ones)
+    const matchesInput = value.trim() === '' || player.toLowerCase().includes((value || '').toLowerCase());
     
     // Check if this player name is already selected by another player
     const isAlreadySelected = allPlayerNames.some(selectedName => 
-      selectedName.trim().toLowerCase() === player.toLowerCase()
+      formatNameForDatabase(selectedName) === formatNameForDatabase(player)
     );
     
     return matchesInput && !isAlreadySelected;
@@ -67,7 +79,7 @@ export default function PlayerAutocomplete({
   };
 
   const handleSelectPlayer = (playerName: string) => {
-    onChangeText(playerName);
+    onChangeText(capitalizePlayerName(playerName));
     setShowDropdown(false);
   };
 
@@ -120,7 +132,7 @@ export default function PlayerAutocomplete({
                   style={styles.playerItem}
                   onPress={() => handleSelectPlayer(playerName)}
                 >
-                  <Text style={styles.playerName}>{playerName}</Text>
+                  <Text style={styles.playerName}>{capitalizePlayerName(playerName)}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
