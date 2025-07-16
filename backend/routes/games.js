@@ -137,8 +137,17 @@ router.delete('/:id', async (req, res) => {
 // Helper function to update player statistics
 async function updatePlayerStats(game) {
   try {
+    // Convert Map to object for easier iteration
+    const homePlayerStats = game.gameSummary.homePlayerStats instanceof Map 
+      ? Object.fromEntries(game.gameSummary.homePlayerStats)
+      : game.gameSummary.homePlayerStats;
+    
+    const awayPlayerStats = game.gameSummary.awayPlayerStats instanceof Map 
+      ? Object.fromEntries(game.gameSummary.awayPlayerStats)
+      : game.gameSummary.awayPlayerStats;
+
     // Update home team players
-    for (const [playerName, stats] of game.gameSummary.homePlayerStats) {
+    for (const [playerName, stats] of Object.entries(homePlayerStats)) {
       await Player.findOneAndUpdate(
         { name: playerName },
         {
@@ -161,7 +170,7 @@ async function updatePlayerStats(game) {
     }
 
     // Update away team players
-    for (const [playerName, stats] of game.gameSummary.awayPlayerStats) {
+    for (const [playerName, stats] of Object.entries(awayPlayerStats)) {
       await Player.findOneAndUpdate(
         { name: playerName },
         {

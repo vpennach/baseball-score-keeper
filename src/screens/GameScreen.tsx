@@ -13,6 +13,7 @@ import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
 import PlayerStatsModal from '../components/PlayerStatsModal';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { gameService, calculateGameSummary } from '../services/gameService';
 
 type GameScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Game'>;
@@ -129,6 +130,25 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     nextAwayBatter: 1,
     gameEnded: false,
   });
+
+  // Auto-save game when it ends naturally
+  useEffect(() => {
+    if (gameState.gameEnded) {
+      // Calculate the actual total innings played
+      const totalInningsPlayed = gameState.isTopInning ? gameState.inning - 1 : gameState.inning;
+      
+      // Determine the reason for game end
+      let gameEndReason = 'regulation';
+      if (totalInningsPlayed > maxInnings) {
+        gameEndReason = 'extra innings';
+      } else if (!gameState.isTopInning && totalInningsPlayed === maxInnings && gameState.homeScore > gameState.awayScore) {
+        gameEndReason = 'walk-off';
+      }
+      
+      // Auto-save the game
+      saveGameToDatabase(gameEndReason);
+    }
+  }, [gameState.gameEnded]);
 
   const saveGameState = (state: GameState) => {
     setGameHistory(prev => [...prev, state]);
@@ -1085,6 +1105,62 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
     setShowDoublePlayModal(false);
   };
 
+  const saveGameToDatabase = async (gameEndReason: string = 'manual') => {
+    try {
+      // Calculate final game summary
+      const gameSummary = calculateGameSummary(
+        gameState,
+        homeTeam,
+        awayTeam,
+        maxInnings,
+        gameHistory
+      );
+
+      // Prepare game data for saving
+      const gameData = {
+        homeTeam,
+        awayTeam,
+        homeAbbreviation: route.params.homeAbbreviation,
+        awayAbbreviation: route.params.awayAbbreviation,
+        homePlayers,
+        awayPlayers,
+        maxInnings,
+        gameHistory,
+        finalGameState: gameState,
+        gameSummary
+      };
+
+      // Save game to MongoDB
+      const response = await gameService.createGame(gameData);
+      
+      if (response.success) {
+        Alert.alert(
+          'Game Saved',
+          `Game has been successfully saved to the database! (${gameEndReason})`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Home'),
+            },
+          ]
+        );
+      } else {
+        throw new Error(response.message || 'Failed to save game');
+      }
+    } catch (error) {
+      console.error('Error saving game:', error);
+      Alert.alert(
+        'Error',
+        'Failed to save game. Please try again.',
+        [
+          {
+            text: 'OK',
+          },
+        ]
+      );
+    }
+  };
+
   const endGame = () => {
     Alert.alert(
       'End Game',
@@ -1097,10 +1173,7 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
         {
           text: 'End Game',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Save game data to MongoDB
-            navigation.navigate('Home');
-          },
+          onPress: () => saveGameToDatabase('manual'),
         },
       ]
     );

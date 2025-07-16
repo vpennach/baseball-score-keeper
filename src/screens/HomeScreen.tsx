@@ -44,12 +44,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.buttonText}>Player Stats</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.button, styles.testButton]}
-          onPress={() => navigation.navigate('ApiTest')}
-        >
-          <Text style={styles.buttonText}>API Test</Text>
-        </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -92,7 +87,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'PressStart2P',
   },
-  testButton: {
-    backgroundColor: '#FF6B6B',
-  },
+
 }); 

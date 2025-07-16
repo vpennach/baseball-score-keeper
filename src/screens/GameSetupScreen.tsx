@@ -14,6 +14,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
+import PlayerAutocomplete from '../components/PlayerAutocomplete';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 type GameSetupScreenProps = {
@@ -99,6 +100,11 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
   };
 
   const handleHomePlayerChange = (index: number, text: string) => {
+    // Don't allow names that start with spaces
+    if (text.startsWith(' ')) {
+      return;
+    }
+    
     const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
     if (sanitizedText.length <= 13) {
       const newPlayers = [...homePlayers];
@@ -108,6 +114,11 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
   };
 
   const handleAwayPlayerChange = (index: number, text: string) => {
+    // Don't allow names that start with spaces
+    if (text.startsWith(' ')) {
+      return;
+    }
+    
     const sanitizedText = text.replace(/[^a-zA-Z0-9\s]/g, '');
     if (sanitizedText.length <= 13) {
       const newPlayers = [...awayPlayers];
@@ -117,19 +128,73 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
   };
 
   const handleHomePlayerSubmit = (index: number) => {
-    if (homePlayers[index].trim() === '') {
+    let trimmedName = homePlayers[index].trim();
+    
+    // If the name is empty, just clear it and return
+    if (trimmedName === '') {
       const newPlayers = [...homePlayers];
       newPlayers[index] = '';
       setHomePlayers(newPlayers);
+      return;
     }
+    
+    // Check for duplicates (ignore empty names)
+    const allPlayers = [...homePlayers, ...awayPlayers];
+    const isDuplicate = allPlayers.some((player, playerIndex) => {
+      if (playerIndex === index) return false; // Don't check against self
+      const playerTrimmed = player.trim();
+      if (playerTrimmed === '') return false; // Ignore empty names
+      return playerTrimmed.toLowerCase() === trimmedName.toLowerCase();
+    });
+    
+    if (isDuplicate) {
+      // Clear the duplicate name
+      const newPlayers = [...homePlayers];
+      newPlayers[index] = '';
+      setHomePlayers(newPlayers);
+      Alert.alert('Duplicate Name', 'This name is already used by another player. Please enter a different name.');
+      return;
+    }
+    
+    // Apply trimmed name
+    const newPlayers = [...homePlayers];
+    newPlayers[index] = trimmedName;
+    setHomePlayers(newPlayers);
   };
 
   const handleAwayPlayerSubmit = (index: number) => {
-    if (awayPlayers[index].trim() === '') {
+    let trimmedName = awayPlayers[index].trim();
+    
+    // If the name is empty, just clear it and return
+    if (trimmedName === '') {
       const newPlayers = [...awayPlayers];
       newPlayers[index] = '';
       setAwayPlayers(newPlayers);
+      return;
     }
+    
+    // Check for duplicates (ignore empty names)
+    const allPlayers = [...homePlayers, ...awayPlayers];
+    const isDuplicate = allPlayers.some((player, playerIndex) => {
+      if (playerIndex === homePlayers.length + index) return false; // Don't check against self
+      const playerTrimmed = player.trim();
+      if (playerTrimmed === '') return false; // Ignore empty names
+      return playerTrimmed.toLowerCase() === trimmedName.toLowerCase();
+    });
+    
+    if (isDuplicate) {
+      // Clear the duplicate name
+      const newPlayers = [...awayPlayers];
+      newPlayers[index] = '';
+      setAwayPlayers(newPlayers);
+      Alert.alert('Duplicate Name', 'This name is already used by another player. Please enter a different name.');
+      return;
+    }
+    
+    // Apply trimmed name
+    const newPlayers = [...awayPlayers];
+    newPlayers[index] = trimmedName;
+    setAwayPlayers(newPlayers);
   };
 
   const removeLastHomePlayer = () => {
@@ -228,47 +293,50 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
     });
   };
 
-  const renderPlayerInputs = (players: string[], isHomeTeam: boolean) => (
-    <View style={styles.playersSection}>
-      <View style={styles.playersHeader}>
-        <Text style={styles.playersTitle}>Players</Text>
-        {players.length < 9 && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={isHomeTeam ? addHomePlayer : addAwayPlayer}
-          >
-            <Text style={styles.addButtonText}>+</Text>
-          </TouchableOpacity>
+  const renderPlayerInputs = (players: string[], isHomeTeam: boolean) => {
+    // Get all current player names from both teams
+    const allPlayerNames = [...homePlayers, ...awayPlayers];
+    
+    return (
+      <View style={styles.playersSection}>
+        <View style={styles.playersHeader}>
+          <Text style={styles.playersTitle}>Players</Text>
+          {players.length < 9 && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={isHomeTeam ? addHomePlayer : addAwayPlayer}
+            >
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {players.map((player, index) => (
+          <View key={index} style={[styles.playerInputContainer, { zIndex: 1000 - index }]}>
+            <Text style={styles.playerNumber}>{index + 1}.</Text>
+            <PlayerAutocomplete
+              value={player}
+              onChangeText={(text) => isHomeTeam ? handleHomePlayerChange(index, text) : handleAwayPlayerChange(index, text)}
+              onBlur={() => isHomeTeam ? handleHomePlayerSubmit(index) : handleAwayPlayerSubmit(index)}
+              placeholder="Player Name"
+              style={styles.playerInput}
+              allPlayerNames={allPlayerNames}
+            />
+          </View>
+        ))}
+        {players.length > 1 && (
+          <View style={styles.playersHeader}>
+            <Text style={styles.playersTitle}>Remove</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={isHomeTeam ? removeLastHomePlayer : removeLastAwayPlayer}
+            >
+              <Text style={styles.addButtonText}>-</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
-      {players.map((player, index) => (
-        <View key={index} style={styles.playerInputContainer}>
-          <Text style={styles.playerNumber}>{index + 1}.</Text>
-          <TextInput
-            style={styles.playerInput}
-            placeholder="Player Name"
-            placeholderTextColor="#666"
-            value={player}
-            onChangeText={(text) => isHomeTeam ? handleHomePlayerChange(index, text) : handleAwayPlayerChange(index, text)}
-            onSubmitEditing={() => isHomeTeam ? handleHomePlayerSubmit(index) : handleAwayPlayerSubmit(index)}
-            returnKeyType="done"
-            autoCorrect={false}
-          />
-        </View>
-      ))}
-      {players.length > 1 && (
-        <View style={styles.playersHeader}>
-          <Text style={styles.playersTitle}>Remove</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={isHomeTeam ? removeLastHomePlayer : removeLastAwayPlayer}
-          >
-            <Text style={styles.addButtonText}>-</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+    );
+  };
 
   const renderInningsSelector = () => (
     <View style={styles.inningsSection}>
@@ -325,68 +393,71 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
   );
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <StripedBackground />
       <View style={styles.divider} />
-      <ScrollView 
-        style={styles.scrollView}
-        keyboardShouldPersistTaps="handled"
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingContainer}
       >
-        <View style={styles.contentContainer}>
-          <View style={styles.teamSection}>
-            <Text style={styles.title}>Home Team</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Team Name"
-              placeholderTextColor="#666"
-              value={homeTeam}
-              onChangeText={handleHomeTeamChange}
-              onSubmitEditing={handleHomeTeamSubmit}
-              returnKeyType="done"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.abbreviationInput}
-              placeholder="Abr."
-              placeholderTextColor="#666"
-              value={homeAbbreviation}
-              onChangeText={handleHomeAbbreviationChange}
-              returnKeyType="done"
-              autoCorrect={false}
-            />
-            {renderPlayerInputs(homePlayers, true)}
-          </View>
+        <ScrollView 
+          style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.contentContainer}>
+            <View style={styles.teamSection}>
+              <Text style={styles.title}>Home Team</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Team Name"
+                placeholderTextColor="#666"
+                value={homeTeam}
+                onChangeText={handleHomeTeamChange}
+                onSubmitEditing={handleHomeTeamSubmit}
+                returnKeyType="done"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.abbreviationInput}
+                placeholder="Abr."
+                placeholderTextColor="#666"
+                value={homeAbbreviation}
+                onChangeText={handleHomeAbbreviationChange}
+                returnKeyType="done"
+                autoCorrect={false}
+              />
+              {renderPlayerInputs(homePlayers, true)}
+            </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <View style={styles.teamSection}>
-            <Text style={styles.title}>Away Team</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Team Name"
-              placeholderTextColor="#666"
-              value={awayTeam}
-              onChangeText={handleAwayTeamChange}
-              onSubmitEditing={handleAwayTeamSubmit}
-              returnKeyType="done"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.abbreviationInput}
-              placeholder="Abr."
-              placeholderTextColor="#666"
-              value={awayAbbreviation}
-              onChangeText={handleAwayAbbreviationChange}
-              returnKeyType="done"
-              autoCorrect={false}
-            />
-            {renderPlayerInputs(awayPlayers, false)}
+            <View style={styles.teamSection}>
+              <Text style={styles.title}>Away Team</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Team Name"
+                placeholderTextColor="#666"
+                value={awayTeam}
+                onChangeText={handleAwayTeamChange}
+                onSubmitEditing={handleAwayTeamSubmit}
+                returnKeyType="done"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.abbreviationInput}
+                placeholder="Abr."
+                placeholderTextColor="#666"
+                value={awayAbbreviation}
+                onChangeText={handleAwayAbbreviationChange}
+                returnKeyType="done"
+                autoCorrect={false}
+              />
+              {renderPlayerInputs(awayPlayers, false)}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {renderInningsSelector()}
       {renderInningsModal()}
@@ -413,7 +484,7 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -500,6 +571,7 @@ const styles = StyleSheet.create({
   },
   playersSection: {
     marginTop: 20,
+    zIndex: 100,
   },
   playersHeader: {
     flexDirection: 'row',
@@ -631,5 +703,8 @@ const styles = StyleSheet.create({
     fontFamily: 'PressStart2P',
     color: '#000000',
     textAlign: 'center',
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
   },
 }); 

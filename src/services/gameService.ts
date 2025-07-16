@@ -63,6 +63,89 @@ export interface Game {
   updatedAt: string;
 }
 
+// Utility function to calculate final game summary
+export const calculateGameSummary = (
+  gameState: any,
+  homeTeam: string,
+  awayTeam: string,
+  maxInnings: number,
+  gameHistory: any[]
+): {
+  totalInnings: number;
+  homePlayerStats: Record<string, any>;
+  awayPlayerStats: Record<string, any>;
+  homeScore: number;
+  awayScore: number;
+  winner: string;
+  gameEndReason: string;
+} => {
+  // Determine winner and game end reason
+  let winner: string;
+  let gameEndReason: string;
+  
+  // Calculate the actual total innings played
+  // If the game ended in the top of an inning, that inning wasn't completed
+  // If the game ended in the bottom of an inning, that inning was completed
+  const totalInningsPlayed = gameState.isTopInning ? gameState.inning - 1 : gameState.inning;
+  
+  if (gameState.homeScore > gameState.awayScore) {
+    winner = 'home';
+    if (totalInningsPlayed > maxInnings) {
+      gameEndReason = 'extra innings';
+    } else if (!gameState.isTopInning && totalInningsPlayed === maxInnings) {
+      gameEndReason = 'walk-off';
+    } else {
+      gameEndReason = 'regulation';
+    }
+  } else if (gameState.awayScore > gameState.homeScore) {
+    winner = 'away';
+    if (totalInningsPlayed > maxInnings) {
+      gameEndReason = 'extra innings';
+    } else {
+      gameEndReason = 'regulation';
+    }
+  } else {
+    winner = 'tie';
+    gameEndReason = 'tie game';
+  }
+
+  // Calculate batting averages and slugging percentages for home players
+  const homePlayerStats: Record<string, any> = {};
+  Object.entries(gameState.homePlayerStats).forEach(([playerName, stats]: [string, any]) => {
+    const battingAverage = stats.atBats > 0 ? parseFloat((stats.hits / stats.atBats).toFixed(3)) : 0;
+    const sluggingPercentage = stats.atBats > 0 ? parseFloat((stats.totalBases / stats.atBats).toFixed(3)) : 0;
+    
+    homePlayerStats[playerName] = {
+      ...stats,
+      battingAverage,
+      sluggingPercentage
+    };
+  });
+
+  // Calculate batting averages and slugging percentages for away players
+  const awayPlayerStats: Record<string, any> = {};
+  Object.entries(gameState.awayPlayerStats).forEach(([playerName, stats]: [string, any]) => {
+    const battingAverage = stats.atBats > 0 ? parseFloat((stats.hits / stats.atBats).toFixed(3)) : 0;
+    const sluggingPercentage = stats.atBats > 0 ? parseFloat((stats.totalBases / stats.atBats).toFixed(3)) : 0;
+    
+    awayPlayerStats[playerName] = {
+      ...stats,
+      battingAverage,
+      sluggingPercentage
+    };
+  });
+
+  return {
+    totalInnings: totalInningsPlayed,
+    homePlayerStats,
+    awayPlayerStats,
+    homeScore: gameState.homeScore,
+    awayScore: gameState.awayScore,
+    winner,
+    gameEndReason
+  };
+};
+
 // Game API service functions
 export const gameService = {
   // Create a new game
@@ -74,6 +157,8 @@ export const gameService = {
     homePlayers: string[];
     awayPlayers: string[];
     maxInnings?: number;
+    gameHistory?: any[];
+    finalGameState?: any;
     gameSummary: {
       totalInnings: number;
       homePlayerStats: Record<string, any>;

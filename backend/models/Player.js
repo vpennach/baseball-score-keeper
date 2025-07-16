@@ -13,26 +13,13 @@ const playerSchema = new mongoose.Schema({
   triples: { type: Number, default: 0 },
   homers: { type: Number, default: 0 },
   totalBases: { type: Number, default: 0 },
-  battingAverage: { type: Number, default: 0 },
-  sluggingPercentage: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Calculate batting average and slugging percentage before saving
+// Update the updatedAt field before saving
 playerSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
-  
-  // Calculate batting average
-  if (this.atBats > 0) {
-    this.battingAverage = parseFloat((this.hits / this.atBats).toFixed(3));
-  }
-  
-  // Calculate slugging percentage
-  if (this.atBats > 0) {
-    this.sluggingPercentage = parseFloat((this.totalBases / this.atBats).toFixed(3));
-  }
-  
   next();
 });
 

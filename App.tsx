@@ -9,7 +9,7 @@ import GameScreen from './src/screens/GameScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import GameSetupScreen from './src/screens/GameSetupScreen';
 import PlayerStatsScreen from './src/screens/PlayerStatsScreen';
-import ApiTest from './src/components/ApiTest';
+
 
 export type RootStackParamList = {
   Home: undefined;
@@ -25,7 +25,7 @@ export type RootStackParamList = {
   };
   History: undefined;
   PlayerStats: undefined;
-  ApiTest: undefined;
+
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -81,11 +81,7 @@ export default function App() {
             component={PlayerStatsScreen} 
             options={{ title: 'Stats' }}
           />
-          <Stack.Screen 
-            name="ApiTest" 
-            component={ApiTest} 
-            options={{ title: 'API Test' }}
-          />
+          
         </Stack.Navigator>
         <StatusBar style="light" />
       </View>
