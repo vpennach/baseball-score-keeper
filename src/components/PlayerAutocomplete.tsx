@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { formatNameForDatabase, capitalizePlayerName } from '../utils/nameUtils';
 import { getPlayerNames } from '../services/api';
@@ -96,50 +95,46 @@ export default function PlayerAutocomplete({
     }
   };
 
-  const handleOutsideClick = () => {
-    setShowDropdown(false);
-  };
-
   return (
-    <TouchableWithoutFeedback onPress={handleOutsideClick}>
-      <View style={styles.container} ref={containerRef}>
-        <TextInput
-          style={[
-            styles.input, 
-            style,
-            isNewPlayer && styles.newPlayerInput
-          ]}
-          value={value}
-          onChangeText={handleTextChange}
-          placeholder={placeholder}
-          placeholderTextColor="#666"
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          returnKeyType="done"
-          autoCorrect={false}
-        />
-        
-        {showDropdown && filteredPlayers.length > 0 && (
-          <View style={styles.dropdown}>
-            <ScrollView 
-              style={styles.dropdownList}
-              keyboardShouldPersistTaps="handled"
-              nestedScrollEnabled={true}
-            >
-              {filteredPlayers.map((playerName, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.playerItem}
-                  onPress={() => handleSelectPlayer(playerName)}
-                >
-                  <Text style={styles.playerName}>{capitalizePlayerName(playerName)}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    </TouchableWithoutFeedback>
+    <View style={styles.container} ref={containerRef}>
+      <TextInput
+        style={[
+          styles.input, 
+          style,
+          isNewPlayer && styles.newPlayerInput
+        ]}
+        value={value}
+        onChangeText={handleTextChange}
+        placeholder={placeholder}
+        placeholderTextColor="#666"
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
+        returnKeyType="done"
+        autoCorrect={false}
+      />
+      
+      {showDropdown && filteredPlayers.length > 0 && (
+        <View style={styles.dropdown}>
+          <ScrollView 
+            style={styles.dropdownList}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+          >
+            {filteredPlayers.map((playerName, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.playerItem}
+                onPress={() => handleSelectPlayer(playerName)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.playerName}>{capitalizePlayerName(playerName)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 

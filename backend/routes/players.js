@@ -116,6 +116,55 @@ router.get('/names', async (req, res) => {
   }
 });
 
+// @route   GET /api/players/stats/:playerName
+// @desc    Get career stats for a specific player
+// @access  Public
+router.get('/stats/:playerName', async (req, res) => {
+  try {
+    const playerName = req.params.playerName.toLowerCase().trim();
+    
+    const player = await Player.findOne({ name: playerName });
+    
+    if (!player) {
+      return res.status(404).json({
+        success: false,
+        message: 'Player not found'
+      });
+    }
+
+    // Calculate batting average and slugging percentage
+    const battingAverage = player.atBats > 0 ? (player.hits / player.atBats).toFixed(3) : '.000';
+    const sluggingPercentage = player.atBats > 0 ? (player.totalBases / player.atBats).toFixed(3) : '.000';
+
+    const careerStats = {
+      gamesPlayed: player.gamesPlayed,
+      atBats: player.atBats,
+      hits: player.hits,
+      runs: player.runs,
+      rbis: player.rbis,
+      singles: player.singles,
+      doubles: player.doubles,
+      triples: player.triples,
+      homers: player.homers,
+      totalBases: player.totalBases,
+      battingAverage,
+      sluggingPercentage
+    };
+
+    res.json({
+      success: true,
+      data: careerStats
+    });
+  } catch (error) {
+    console.error('Error fetching player stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching player stats',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/players/:id
 // @desc    Get a specific player
 // @access  Public

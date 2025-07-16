@@ -82,23 +82,8 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
   };
 
   const handlePlayerPress = (playerName: string) => {
-    try {
-      //console.log('=== PLAYER PRESS DEBUG ===');
-      //console.log('1. Player pressed:', playerName);
-      //console.log('2. Current showPlayerStats state:', showPlayerStats);
-      //console.log('3. Current selectedPlayer state:', selectedPlayer);
-      
-      //console.log('4. Setting selectedPlayer to:', playerName);
-      setSelectedPlayer(playerName);
-      
-      //console.log('5. Setting showPlayerStats to true');
-      setShowPlayerStats(true);
-      
-      //console.log('6. handlePlayerPress completed successfully');
-    } catch (error) {
-      //console.error('ERROR in handlePlayerPress:', error);
-      //console.error('Error stack:', error.stack);
-    }
+    setSelectedPlayer(playerName);
+    setShowPlayerStats(true);
   };
 
   const initialPlayerStats = (players: string[]) =>

@@ -65,4 +65,20 @@ export const getPlayerNames = async (): Promise<ApiResponse<string[]>> => {
   };
 };
 
+// Player career stats API
+export const getPlayerStats = async (playerName: string): Promise<ApiResponse<any>> => {
+  const endpoint = `/players/stats/${encodeURIComponent(playerName)}`;
+  const response = await apiRequest<any>(endpoint);
+  
+  // Unwrap the double-wrapped response structure
+  if (response.success && response.data) {
+    return {
+      success: response.data.success,
+      data: response.data.data
+    };
+  }
+  
+  return response;
+};
+
 export default apiRequest; 

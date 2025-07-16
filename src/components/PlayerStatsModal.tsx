@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { getPlayerStats } from '../services/api';
+import { formatNameForDatabase } from '../utils/nameUtils';
 
 type PlayerStats = {
   atBats: number;
@@ -18,34 +20,90 @@ type PlayerStats = {
   totalBases: number;
 };
 
-interface PlayerStatsModalProps {
+type CareerStats = {
+  gamesPlayed: number;
+  atBats: number;
+  hits: number;
+  runs: number;
+  rbis: number;
+  singles: number;
+  doubles: number;
+  triples: number;
+  homers: number;
+  totalBases: number;
+  battingAverage: string;
+  sluggingPercentage: string;
+};
+
+type PlayerStatsModalProps = {
   visible: boolean;
   onClose: () => void;
   playerName: string;
   playerStats: PlayerStats;
-}
+};
 
 export default function PlayerStatsModal({ visible, onClose, playerName, playerStats }: PlayerStatsModalProps) {
+  const [careerStats, setCareerStats] = useState<CareerStats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch career stats when modal becomes visible
+  useEffect(() => {
+    if (visible && playerName) {
+      fetchCareerStats();
+    }
+  }, [visible, playerName]);
+
+  const fetchCareerStats = async () => {
+    setLoading(true);
+    try {
+      const formattedName = formatNameForDatabase(playerName);
+      const response = await getPlayerStats(formattedName);
+      if (response.success && response.data) {
+        setCareerStats(response.data);
+      } else {
+        // If player not found, set default stats
+        setCareerStats({
+          gamesPlayed: 0,
+          atBats: 0,
+          hits: 0,
+          runs: 0,
+          rbis: 0,
+          singles: 0,
+          doubles: 0,
+          triples: 0,
+          homers: 0,
+          totalBases: 0,
+          battingAverage: '.000',
+          sluggingPercentage: '.000'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching career stats:', error);
+      // Set default stats on error
+      setCareerStats({
+        gamesPlayed: 0,
+        atBats: 0,
+        hits: 0,
+        runs: 0,
+        rbis: 0,
+        singles: 0,
+        doubles: 0,
+        triples: 0,
+        homers: 0,
+        totalBases: 0,
+        battingAverage: '.000',
+        sluggingPercentage: '.000'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!visible) return null;
 
   // Calculate batting average and slugging percentage for game stats
   const gameBattingAverage = playerStats.atBats > 0 ? (playerStats.hits / playerStats.atBats).toFixed(3) : '.000';
   const gameSluggingPercentage = playerStats.atBats > 0 ? (playerStats.totalBases / playerStats.atBats).toFixed(3) : '.000';
-
-  // Career stats (placeholder with zeros for now)
-  const careerStats = {
-    atBats: 0,
-    hits: 0,
-    runs: 0,
-    rbis: 0,
-    singles: 0,
-    doubles: 0,
-    triples: 0,
-    homers: 0,
-    totalBases: 0,
-  };
-  const careerBattingAverage = '.000';
-  const careerSluggingPercentage = '.000';
 
   return (
     <TouchableOpacity style={styles.overlay} onPress={onClose} activeOpacity={1}>
@@ -108,16 +166,16 @@ export default function PlayerStatsModal({ visible, onClose, playerName, playerS
           
           {/* Data Row */}
           <View style={styles.tableRow}>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.hits}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.atBats}</Text></View>
-            <View style={[styles.cell, styles.wideCell]}><Text style={styles.cellText}>{careerBattingAverage}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.runs}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.singles}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.doubles}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.triples}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.homers}</Text></View>
-            <View style={styles.cell}><Text style={styles.cellText}>{careerStats.rbis}</Text></View>
-            <View style={[styles.cell, styles.wideCell]}><Text style={styles.cellText}>{careerSluggingPercentage}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.hits || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.atBats || 0}</Text></View>
+            <View style={[styles.cell, styles.wideCell]}><Text style={styles.cellText}>{careerStats?.battingAverage || '.000'}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.runs || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.singles || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.doubles || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.triples || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.homers || 0}</Text></View>
+            <View style={styles.cell}><Text style={styles.cellText}>{careerStats?.rbis || 0}</Text></View>
+            <View style={[styles.cell, styles.wideCell]}><Text style={styles.cellText}>{careerStats?.sluggingPercentage || '.000'}</Text></View>
           </View>
         </View>
       </View>
