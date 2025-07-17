@@ -81,4 +81,49 @@ export const getPlayerStats = async (playerName: string): Promise<ApiResponse<an
   return response;
 };
 
+// Get all players with their statistics
+export const getAllPlayers = async (): Promise<ApiResponse<any[]>> => {
+  const response = await apiRequest<{ success: boolean; data: any[] }>('/players');
+  if (response.success && response.data) {
+    return {
+      success: response.data.success,
+      data: response.data.data
+    };
+  }
+  return {
+    success: false,
+    error: 'Failed to fetch players'
+  };
+};
+
+// Get a specific game by ID
+export const getGameById = async (gameId: string): Promise<ApiResponse<any>> => {
+  const response = await apiRequest<{ success: boolean; data: any }>(`/games/${gameId}`);
+  if (response.success && response.data) {
+    return {
+      success: response.data.success,
+      data: response.data.data
+    };
+  }
+  return {
+    success: false,
+    error: 'Failed to fetch game'
+  };
+};
+
+// Get all games
+export const getAllGames = async (): Promise<ApiResponse<any[]>> => {
+  const response = await apiRequest<{ success: boolean; data: any[] }>('/games');
+  if (response.success && response.data) {
+    return {
+      success: response.data.success,
+      data: response.data.data
+    };
+  }
+  return {
+    success: false,
+    error: 'Failed to fetch games'
+  };
+};
+
 export default apiRequest; 

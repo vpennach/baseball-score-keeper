@@ -1,22 +1,17 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
-import * as ScreenOrientation from 'expo-screen-orientation';
+import { useScreenOrientation } from '../hooks/useScreenOrientation';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  // Lock to portrait mode when screen loads
-  useEffect(() => {
-    const lockOrientation = async () => {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    };
-    lockOrientation();
-  }, []);
+  // Lock to portrait mode
+  useScreenOrientation('portrait');
 
   return (
     <View style={styles.container}>

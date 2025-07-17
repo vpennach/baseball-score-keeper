@@ -12,8 +12,8 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
 import PlayerStatsModal from '../components/PlayerStatsModal';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { gameService, calculateGameSummary } from '../services/gameService';
+import { useScreenOrientation } from '../hooks/useScreenOrientation';
 
 type GameScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Game'>;
@@ -66,13 +66,8 @@ export default function GameScreen({ navigation, route }: GameScreenProps) {
   // Double play modal state
   const [showDoublePlayModal, setShowDoublePlayModal] = useState(false);
 
-  // Lock to landscape mode when screen loads
-  useEffect(() => {
-    const lockOrientation = async () => {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    };
-    lockOrientation();
-  }, []);
+  // Lock to landscape mode
+  useScreenOrientation('landscape');
 
   const truncatePlayerName = (name: string) => {
     if (name.length > 6) {

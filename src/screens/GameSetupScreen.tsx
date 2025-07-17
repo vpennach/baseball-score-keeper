@@ -15,8 +15,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
 import PlayerAutocomplete from '../components/PlayerAutocomplete';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { capitalizePlayerName, formatNameForDatabase } from '../utils/nameUtils';
+import { useScreenOrientation } from '../hooks/useScreenOrientation';
 
 type GameSetupScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'GameSetup'>;
@@ -34,13 +34,8 @@ export default function GameSetupScreen({ navigation }: GameSetupScreenProps) {
 
   const inningsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-  // Lock to portrait mode when screen loads
-  useEffect(() => {
-    const lockOrientation = async () => {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    };
-    lockOrientation();
-  }, []);
+  // Lock to portrait mode
+  useScreenOrientation('portrait');
 
   const handleHomeTeamChange = (text: string) => {
     // Remove special characters and only allow letters, numbers, and spaces

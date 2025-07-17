@@ -9,7 +9,9 @@ import GameScreen from './src/screens/GameScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import GameSetupScreen from './src/screens/GameSetupScreen';
 import PlayerStatsScreen from './src/screens/PlayerStatsScreen';
-
+import GameDetailsScreen from './src/screens/GameDetailsScreen';
+import TeamPlayersScreen from './src/screens/TeamPlayersScreen';
+import GameTimelineScreen from './src/screens/GameTimelineScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -25,7 +27,32 @@ export type RootStackParamList = {
   };
   History: undefined;
   PlayerStats: undefined;
-
+  GameDetails: {
+    gameId: string;
+  };
+  TeamPlayers: {
+    teamName: string;
+    teamAbbreviation: string;
+    players: string[];
+    playerStats: Array<{
+      name: string;
+      stats: {
+        atBats: number;
+        hits: number;
+        runs: number;
+        rbis: number;
+        singles: number;
+        doubles: number;
+        triples: number;
+        homers: number;
+        totalBases: number;
+      };
+    }>;
+    opposingTeamName: string;
+  };
+  GameTimeline: {
+    gameId: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -81,7 +108,21 @@ export default function App() {
             component={PlayerStatsScreen} 
             options={{ title: 'Stats' }}
           />
-          
+          <Stack.Screen 
+            name="GameDetails" 
+            component={GameDetailsScreen} 
+            options={{ title: 'Game Details' }}
+          />
+          <Stack.Screen 
+            name="TeamPlayers" 
+            component={TeamPlayersScreen} 
+            options={{ title: 'Team Players' }}
+          />
+          <Stack.Screen 
+            name="GameTimeline" 
+            component={GameTimelineScreen} 
+            options={{ title: 'Game Timeline' }}
+          />
         </Stack.Navigator>
         <StatusBar style="light" />
       </View>

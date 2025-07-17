@@ -1,19 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+} from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import StripedBackground from '../components/StripedBackground';
-import { getAllPlayers } from '../services/api';
-import { capitalizePlayerName } from '../utils/nameUtils';
 import { useScreenOrientation } from '../hooks/useScreenOrientation';
 
-type PlayerStatsScreenProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'PlayerStats'>;
+type TeamPlayersScreenProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'TeamPlayers'>;
+  route: RouteProp<RootStackParamList, 'TeamPlayers'>;
 };
 
 type PlayerStats = {
-  name: string;
-  gamesPlayed: number;
   atBats: number;
   hits: number;
   runs: number;
@@ -23,61 +29,34 @@ type PlayerStats = {
   triples: number;
   homers: number;
   totalBases: number;
-  battingAverage: string;
-  sluggingPercentage: string;
 };
 
-type SortField = 'name' | 'gamesPlayed' | 'atBats' | 'hits' | 'runs' | 'rbis' | 'singles' | 'doubles' | 'triples' | 'homers' | 'totalBases' | 'battingAverage' | 'sluggingPercentage';
+type TeamPlayerData = {
+  name: string;
+  stats: PlayerStats;
+};
 
-export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps) {
-  const [sortField, setSortField] = useState<SortField>('sluggingPercentage');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [players, setPlayers] = useState<PlayerStats[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function TeamPlayersScreen({ navigation, route }: TeamPlayersScreenProps) {
+  const { teamName, teamAbbreviation, players, playerStats, opposingTeamName } = route.params;
+  
+  console.log('TeamPlayersScreen params:', { teamName, opposingTeamName });
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Lock to landscape mode
   useScreenOrientation('landscape');
 
-  // Fetch all players on component mount
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
-  const fetchPlayers = async () => {
-    setLoading(true);
-    try {
-      const response = await getAllPlayers();
-      if (response.success && response.data) {
-        // Transform the data to match our PlayerStats type
-        const transformedPlayers: PlayerStats[] = response.data.map((player: any) => ({
-          name: capitalizePlayerName(player.name),
-          gamesPlayed: player.gamesPlayed || 0,
-          atBats: player.atBats || 0,
-          hits: player.hits || 0,
-          runs: player.runs || 0,
-          rbis: player.rbis || 0,
-          singles: player.singles || 0,
-          doubles: player.doubles || 0,
-          triples: player.triples || 0,
-          homers: player.homers || 0,
-          totalBases: player.totalBases || 0,
-          battingAverage: player.atBats > 0 ? (player.hits / player.atBats).toFixed(3) : '.000',
-          sluggingPercentage: player.atBats > 0 ? (player.totalBases / player.atBats).toFixed(3) : '.000'
-        }));
-        setPlayers(transformedPlayers);
-      } else {
-        console.error('Failed to fetch players:', response.error);
-        setPlayers([]);
-      }
-    } catch (error) {
-      console.error('Error fetching players:', error);
-      setPlayers([]);
-    } finally {
-      setLoading(false);
-    }
+  const calculateBattingAverage = (hits: number, atBats: number) => {
+    if (atBats === 0) return '.000';
+    return (hits / atBats).toFixed(3);
   };
 
-  const handleSort = (field: SortField) => {
+  const calculateSluggingPercentage = (totalBases: number, atBats: number) => {
+    if (atBats === 0) return '.000';
+    return (totalBases / atBats).toFixed(3);
+  };
+
+  const handleSort = (field: string) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -86,14 +65,22 @@ export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps
     }
   };
 
-  const sortedPlayers = [...players].sort((a, b) => {
-    let aValue: any = a[sortField];
-    let bValue: any = b[sortField];
+  const sortedPlayerStats = [...playerStats].sort((a, b) => {
+    let aValue: any = a[sortField as keyof typeof a];
+    let bValue: any = b[sortField as keyof typeof b];
 
-    // Handle string values (batting average, slugging percentage)
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = parseFloat(aValue);
-      bValue = parseFloat(bValue);
+    if (sortField === 'name') {
+      aValue = a.name.toLowerCase();
+      bValue = b.name.toLowerCase();
+    } else if (sortField === 'battingAverage') {
+      aValue = a.stats.atBats > 0 ? a.stats.hits / a.stats.atBats : 0;
+      bValue = b.stats.atBats > 0 ? b.stats.hits / b.stats.atBats : 0;
+    } else if (sortField === 'sluggingPercentage') {
+      aValue = a.stats.atBats > 0 ? a.stats.totalBases / a.stats.atBats : 0;
+      bValue = b.stats.atBats > 0 ? b.stats.totalBases / b.stats.atBats : 0;
+    } else {
+      aValue = a.stats[sortField as keyof typeof a.stats] || 0;
+      bValue = b.stats[sortField as keyof typeof b.stats] || 0;
     }
 
     if (sortDirection === 'asc') {
@@ -103,7 +90,7 @@ export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps
     }
   });
 
-  const getSortIndicator = (field: SortField) => {
+  const getSortIndicator = (field: string) => {
     if (sortField !== field) return '';
     return sortDirection === 'asc' ? '↑' : '↓';
   };
@@ -112,7 +99,7 @@ export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps
     <View style={styles.container}>
       <StripedBackground />
       <View style={styles.header}>
-        <Text style={styles.title}>Player Career Stats</Text>
+        <Text style={styles.title}>{teamName} Players vs. {opposingTeamName}</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -130,12 +117,6 @@ export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps
               onPress={() => handleSort('name')}
             >
               <Text style={styles.headerText}>NAME{getSortIndicator('name')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.headerCell} 
-              onPress={() => handleSort('gamesPlayed')}
-            >
-              <Text style={styles.headerText}>G{getSortIndicator('gamesPlayed')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.headerCell} 
@@ -201,52 +182,43 @@ export default function PlayerStatsScreen({ navigation }: PlayerStatsScreenProps
 
           {/* Scrollable Data Rows */}
           <ScrollView style={styles.dataContainer} showsVerticalScrollIndicator={true}>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading player stats...</Text>
-              </View>
-            ) : (
-              sortedPlayers.map((player, index) => (
-                <View key={index} style={[styles.dataRow, index % 2 === 1 && styles.alternateRow]}>
-                  <View style={[styles.dataCell, styles.nameDataCell]}>
-                    <Text style={styles.dataText}>{player.name}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.gamesPlayed}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.atBats}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.hits}</Text>
-                  </View>
-                  <View style={[styles.dataCell, styles.baCell]}>
-                    <Text style={styles.dataText}>{player.battingAverage}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.runs}</Text>
-                  </View>
-                  <View style={[styles.dataCell, styles.rbiCell]}>
-                    <Text style={styles.dataText}>{player.rbis}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.singles}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.doubles}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.triples}</Text>
-                  </View>
-                  <View style={styles.dataCell}>
-                    <Text style={styles.dataText}>{player.homers}</Text>
-                  </View>
-                  <View style={[styles.dataCell, styles.slgCell]}>
-                    <Text style={styles.dataText}>{player.sluggingPercentage}</Text>
-                  </View>
+            {sortedPlayerStats.map((player, index) => (
+              <View key={index} style={[styles.dataRow, index % 2 === 1 && styles.alternateRow]}>
+                <View style={[styles.dataCell, styles.nameDataCell]}>
+                  <Text style={styles.dataText}>{player.name}</Text>
                 </View>
-              ))
-            )}
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.atBats}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.hits}</Text>
+                </View>
+                <View style={[styles.dataCell, styles.baCell]}>
+                  <Text style={styles.dataText}>{calculateBattingAverage(player.stats.hits, player.stats.atBats)}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.runs}</Text>
+                </View>
+                <View style={[styles.dataCell, styles.rbiCell]}>
+                  <Text style={styles.dataText}>{player.stats.rbis}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.singles}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.doubles}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.triples}</Text>
+                </View>
+                <View style={styles.dataCell}>
+                  <Text style={styles.dataText}>{player.stats.homers}</Text>
+                </View>
+                <View style={[styles.dataCell, styles.slgCell]}>
+                  <Text style={styles.dataText}>{calculateSluggingPercentage(player.stats.totalBases, player.stats.atBats)}</Text>
+                </View>
+              </View>
+            ))}
           </ScrollView>
         </View>
       </View>
@@ -264,16 +236,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 10,
+    paddingBottom: 10,
+    minHeight: 60,
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontFamily: 'PressStart2P',
     color: '#FFFFFF',
-    flex: 1,
     textShadowColor: '#000000',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 0,
+    flex: 1,
+    textAlign: 'center',
   },
   backButton: {
     backgroundColor: '#000000',
@@ -287,6 +261,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'PressStart2P',
   },
+
   tableContainer: {
     flex: 1,
     paddingHorizontal: 20,
@@ -308,15 +283,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: 50,
-  },
-  nameCell: {
-    width: 120,
-    padding: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   nameHeaderCell: {
     width: 120,
@@ -351,7 +317,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   dataContainer: {
-    maxHeight: 261,
+    maxHeight: 400,
   },
   dataRow: {
     flexDirection: 'row',
@@ -377,15 +343,5 @@ const styles = StyleSheet.create({
   },
   alternateRow: {
     backgroundColor: '#D0D0D0',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'PressStart2P',
-    color: '#FFFFFF',
   },
 }); 
